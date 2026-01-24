@@ -9,8 +9,8 @@ const interDisplay = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Vence",
-  description: "We transform ideas into visual masterpieces",
+  title: "Axel",
+  description: "We transform ideas into AI-powered videos",
 };
 
 export default function RootLayout({
