@@ -49,8 +49,13 @@ class VeoService:
         if image_url.startswith("gs://"):
             return await storage_service.download_file(image_url)
         else:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.get(image_url)
+            # Add API key for Gemini API downloads
+            headers = {}
+            if "generativelanguage.googleapis.com" in image_url:
+                headers["x-goog-api-key"] = settings.GEMINI_API_KEY
+            
+            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+                response = await client.get(image_url, headers=headers)
                 response.raise_for_status()
                 return response.content
 
@@ -67,8 +72,13 @@ class VeoService:
         if video_url.startswith("gs://"):
             return await storage_service.download_file(video_url)
         else:
-            async with httpx.AsyncClient(timeout=120.0) as client:
-                response = await client.get(video_url)
+            # Add API key for Gemini API downloads
+            headers = {}
+            if "generativelanguage.googleapis.com" in video_url:
+                headers["x-goog-api-key"] = settings.GEMINI_API_KEY
+            
+            async with httpx.AsyncClient(timeout=120.0, follow_redirects=True) as client:
+                response = await client.get(video_url, headers=headers)
                 response.raise_for_status()
                 return response.content
 
@@ -146,9 +156,10 @@ class VeoService:
             person_generation="allow_adult",  # Enable person generation
         )
 
-        # Add seed if provided for reproducibility
+        # Note: seed parameter is not supported in Gemini API
+        # It's only available in Vertex AI
         if seed is not None:
-            config.seed = seed
+            logger.warning(f"Seed parameter ({seed}) is not supported in Gemini API and will be ignored")
 
         loop = asyncio.get_event_loop()
 
@@ -230,8 +241,9 @@ class VeoService:
             person_generation="allow_adult",
         )
 
+        # Note: seed parameter is not supported in Gemini API
         if seed is not None:
-            config.seed = seed
+            logger.warning(f"Seed parameter ({seed}) is not supported in Gemini API and will be ignored")
 
         loop = asyncio.get_event_loop()
 
@@ -253,16 +265,20 @@ class VeoService:
         Check the status of a video generation operation.
 
         Args:
-            operation_id: The operation ID returned from generate_video
+            operation_id: The operation ID (name) returned from generate_video
 
         Returns:
             Dict with 'done', 'result', 'error', and 'progress' keys
         """
         loop = asyncio.get_event_loop()
 
+        # Create operation object from name/ID
+        operation = types.GenerateVideosOperation(name=operation_id)
+        
+        # Get the latest status
         operation = await loop.run_in_executor(
             None,
-            lambda: self.client.operations.get(name=operation_id),
+            lambda: self.client.operations.get(operation),
         )
 
         result = {
@@ -309,19 +325,67 @@ class VeoService:
         """
         videos_data = []
 
+        # Debug: Log the structure of the response
+        logger.info(f"Operation result type: {type(operation_result)}")
+        logger.info(f"Operation result dir: {[attr for attr in dir(operation_result) if not attr.startswith('_')]}")
+        
         if hasattr(operation_result, "generated_videos"):
             videos = operation_result.generated_videos
+            logger.info(f"Found {len(videos)} generated videos")
 
             for idx, video in enumerate(videos):
+                logger.info(f"Video {idx} type: {type(video)}")
+                logger.info(f"Video {idx} dir: {[attr for attr in dir(video) if not attr.startswith('_')]}")
+                
                 if hasattr(video, "video") and video.video:
                     video_bytes = None
+                    logger.info(f"Video {idx}.video type: {type(video.video)}")
+                    logger.info(f"Video {idx}.video dir: {[attr for attr in dir(video.video) if not attr.startswith('_')]}")
 
-                    # Handle different response formats
-                    if hasattr(video.video, "video_bytes"):
+                    # Method 1: Direct video_bytes access
+                    if hasattr(video.video, "video_bytes") and video.video.video_bytes:
+                        logger.info(f"Video {idx}: Found video_bytes directly")
                         video_bytes = video.video.video_bytes
-                    elif hasattr(video.video, "uri"):
-                        # Video is stored in GCS, download it
+                    
+                    # Method 2: URI download
+                    elif hasattr(video.video, "uri") and video.video.uri:
+                        logger.info(f"Video {idx}: Found URI, downloading from: {video.video.uri}")
                         video_bytes = await self._load_video_bytes(video.video.uri)
+                    
+                    # Method 3: Download via client, then save to temp file and read back
+                    else:
+                        logger.info(f"Video {idx}: Attempting to download via client.files.download()")
+                        loop = asyncio.get_event_loop()
+                        
+                        # Download the video (modifies video object in-place)
+                        await loop.run_in_executor(
+                            None,
+                            lambda v=video: self.client.files.download(file=v.video)
+                        )
+                        
+                        # Now try to get bytes - use a temp file
+                        import tempfile
+                        import os
+                        
+                        with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as tmp:
+                            tmp_path = tmp.name
+                        
+                        try:
+                            # Save to temp file
+                            await loop.run_in_executor(
+                                None,
+                                lambda: video.video.save(tmp_path)
+                            )
+                            
+                            # Read bytes back
+                            with open(tmp_path, 'rb') as f:
+                                video_bytes = f.read()
+                            
+                            logger.info(f"Video {idx}: Successfully downloaded via temp file, size: {len(video_bytes)} bytes")
+                        finally:
+                            # Clean up temp file
+                            if os.path.exists(tmp_path):
+                                os.unlink(tmp_path)
 
                     if video_bytes:
                         # Store each video
@@ -341,6 +405,13 @@ class VeoService:
 
                         videos_data.append(video_info)
                         logger.info(f"Stored video {idx} at {video_path}")
+                    else:
+                        logger.warning(f"Video {idx}: No video bytes found after all attempts")
+                else:
+                    logger.warning(f"Video {idx}: No 'video' attribute or it's None")
+        else:
+            logger.error(f"No 'generated_videos' attribute found in operation result")
+            logger.error(f"Available attributes: {[attr for attr in dir(operation_result) if not attr.startswith('_')]}")
 
         if not videos_data:
             raise ValueError("No video data found in operation result")
