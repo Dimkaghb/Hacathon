@@ -1,78 +1,116 @@
 "use client";
 
-import React from "react";
+import React, { useState, useRef } from "react";
 import { FloatingDock } from "@/components/ui/floating-dock";
+import ComponentsMenu from "@/components/ComponentsMenu";
 import {
-  IconBrandGithub,
-  IconBrandX,
-  IconExchange,
   IconHome,
-  IconNewSection,
-  IconTerminal2,
+  IconHandGrab,
+  IconPointer,
+  IconComponents,
+  IconGitBranch,
+  IconPlayerPlay,
+  IconDotsVertical,
 } from "@tabler/icons-react";
-import Image from "next/image";
 
-export default function FloatingDockDemo() {
+interface FloatingDockDemoProps {
+  onToolSelect?: (tool: "select" | "hand" | "rectangle") => void;
+  currentTool?: string;
+}
+
+export default function FloatingDockDemo({ onToolSelect, currentTool }: FloatingDockDemoProps) {
+  const [componentsMenuOpen, setComponentsMenuOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
+  const componentsButtonRef = useRef<HTMLElement | null>(null);
+
+  const handleComponentsClick = (event: React.MouseEvent) => {
+    const target = event.currentTarget as HTMLElement;
+    const rect = target.getBoundingClientRect();
+    setMenuPosition({
+      x: rect.left + rect.width / 2,
+      y: rect.top,
+    });
+    setComponentsMenuOpen(!componentsMenuOpen);
+  };
+  const getIconClass = (id: string) => {
+    return currentTool === id
+      ? "h-full w-full text-white"
+      : "h-full w-full text-neutral-500 dark:text-neutral-300";
+  };
+
   const links = [
     {
       title: "Home",
       icon: (
-        <IconHome className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+        <IconHome className={getIconClass("home")} />
       ),
       href: "/",
+      id: "home",
     },
     {
-      title: "Products",
+      title: "Hand Tool",
       icon: (
-        <IconTerminal2 className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+        <IconHandGrab className={getIconClass("hand")} />
       ),
       href: "#",
+      onClick: (e) => onToolSelect?.("hand"),
+      id: "hand",
+    },
+    {
+      title: "Cursor",
+      icon: (
+        <IconPointer className={getIconClass("select")} />
+      ),
+      href: "#",
+      onClick: (e) => onToolSelect?.("select"),
+      id: "select",
     },
     {
       title: "Components",
       icon: (
-        <IconNewSection className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+        <IconComponents className={getIconClass("components")} />
       ),
       href: "#",
+      onClick: handleComponentsClick,
+      id: "components",
     },
     {
-      title: "Canvas",
+      title: "Branch",
       icon: (
-        <Image
-          src="https://assets.aceternity.com/logo-dark.png"
-          width={20}
-          height={20}
-          alt="Canvas Logo"
-        />
+        <IconGitBranch className={getIconClass("branch")} />
       ),
       href: "#",
+      id: "branch",
     },
     {
-      title: "Changelog",
+      title: "Shapes",
       icon: (
-        <IconExchange className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+        <IconPlayerPlay className={getIconClass("rectangle")} />
       ),
       href: "#",
+      onClick: (e) => onToolSelect?.("rectangle"),
+      id: "rectangle",
     },
     {
-      title: "Twitter",
+      title: "More",
       icon: (
-        <IconBrandX className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+        <IconDotsVertical className={getIconClass("more")} />
       ),
       href: "#",
-    },
-    {
-      title: "GitHub",
-      icon: (
-        <IconBrandGithub className="h-full w-full text-neutral-500 dark:text-neutral-300" />
-      ),
-      href: "#",
+      id: "more",
     },
   ];
 
   return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50">
-      <FloatingDock items={links} />
-    </div>
+    <>
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50">
+        <FloatingDock items={links} activeId={currentTool} />
+      </div>
+      <ComponentsMenu
+        isOpen={componentsMenuOpen}
+        onClose={() => setComponentsMenuOpen(false)}
+        position={menuPosition}
+      />
+    </>
   );
 }
