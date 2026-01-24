@@ -67,7 +67,7 @@ export default function AvatarComponent({
               </button>
             </div>
           ) : (
-            <div className="h-full scale-[0.6] origin-top-left transform-gpu">
+            <div className="h-full">
               <FileUpload onChange={handleFileUpload} />
             </div>
           )}
