@@ -25,7 +25,7 @@ class FaceAnalysisRequest(BaseModel):
 class FaceAnalysisResponse(BaseModel):
     character_id: UUID
     embedding_id: str
-    metadata: Dict[str, Any]
+    analysis_data: Dict[str, Any]
 
 
 class PromptEnhanceRequest(BaseModel):
@@ -78,7 +78,7 @@ class CharacterResponse(BaseModel):
     name: Optional[str] = None
     source_image_url: str
     embedding_id: Optional[str] = None
-    metadata: Dict[str, Any]
+    analysis_data: Dict[str, Any]
 
     class Config:
         from_attributes = True

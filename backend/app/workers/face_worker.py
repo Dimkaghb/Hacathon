@@ -64,7 +64,7 @@ class FaceAnalysisWorker(BaseWorker):
 
             if character:
                 character.embedding_id = embedding_id
-                character.metadata = {**character.metadata, **analysis}
+                character.analysis_data = {**character.analysis_data, **analysis}
                 await db.commit()
 
         await self.broadcast_progress(

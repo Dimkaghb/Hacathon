@@ -1,9 +1,15 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
-from typing import List
+from typing import List, Optional
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        case_sensitive=True,
+        extra="allow"
+    )
+
     # Database
     DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/videogen"
 
@@ -12,6 +18,7 @@ class Settings(BaseSettings):
 
     # Google Cloud
     GOOGLE_CLOUD_PROJECT: str = ""
+    GOOGLE_APPLICATION_CREDENTIALS: Optional[str] = None
     GEMINI_API_KEY: str = ""
     GCS_BUCKET: str = ""
 
@@ -38,10 +45,6 @@ class Settings(BaseSettings):
     VEO_DEFAULT_ASPECT_RATIO: str = "16:9"
     VEO_POLL_INTERVAL: int = 10
     VEO_MAX_POLL_TIME: int = 360
-
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
 
 
 @lru_cache()

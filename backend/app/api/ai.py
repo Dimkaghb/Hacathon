@@ -53,7 +53,7 @@ async def analyze_face(
         project_id=request.project_id,
         name=request.character_name,
         source_image_url=request.image_url,
-        metadata={},
+        analysis_data={},
     )
     db.add(character)
     await db.commit()
@@ -272,7 +272,7 @@ async def create_character(
         project_id=project.id,
         name=character_data.name,
         source_image_url=character_data.source_image_url,
-        metadata={},
+        analysis_data={},
     )
     db.add(character)
     await db.commit()

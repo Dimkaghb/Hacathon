@@ -50,7 +50,7 @@ def upgrade() -> None:
         sa.Column('name', sa.String(255), nullable=True),
         sa.Column('source_image_url', sa.Text(), nullable=False),
         sa.Column('embedding_id', sa.String(255), nullable=True),
-        sa.Column('metadata', postgresql.JSON(), nullable=True, default={}),
+        sa.Column('analysis_data', postgresql.JSON(), nullable=True, default={}),
         sa.Column('created_at', sa.DateTime(), nullable=True),
         sa.Column('updated_at', sa.DateTime(), nullable=True),
     )
