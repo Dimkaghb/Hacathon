@@ -15,7 +15,7 @@ class Character(Base):
     name = Column(String(255), nullable=True)
     source_image_url = Column(Text, nullable=False)
     embedding_id = Column(String(255), nullable=True)  # Reference to Qdrant vector
-    metadata = Column(JSON, default=dict)  # Facial features, analysis data
+    analysis_data = Column(JSON, default=dict)  # Facial features, analysis data
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
