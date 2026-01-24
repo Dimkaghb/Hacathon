@@ -7,7 +7,6 @@ export default function AboutSection() {
   return (
     <section className="w-full bg-[#0a0a0a] px-6 py-24 md:px-12">
       <div className="mx-auto flex max-w-[1440px] flex-col gap-12 lg:flex-row">
-        {/* Left Content */}
         <div className="flex flex-1 flex-col justify-between gap-16">
           <div className="flex flex-col gap-8">
             <h2 className="font-serif text-4xl font-normal leading-tight text-[#ededed] md:text-5xl lg:text-6xl">

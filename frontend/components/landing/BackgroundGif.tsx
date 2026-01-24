@@ -32,14 +32,21 @@ export default function BackgroundGif({ speed = 0.5, className = "" }: Backgroun
           }}
         />
       </div>
-      {/* Overlay gradient to ensure text readability */}
       <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-transparent to-[#0a0a0a]/50" />
-      {/* Slow animation overlay */}
       <div 
         className="absolute inset-0 pointer-events-none"
         style={{
-          animation: "slowFade 10s ease-in-out infinite",
-          background: "radial-gradient(circle at center, rgba(0,0,0,0.15) 0%, transparent 70%)",
+          animation: "slowFade 70s ease-in-out infinite",
+          background: "radial-gradient(circle at center, rgba(0,0,0,0.2) 0%, transparent 70%)",
+          filter: "blur(1px)",
+          backdropFilter: "blur(0.5px)",
+        }}
+      />
+      <div 
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          animation: "slowFade2 15s ease-in-out infinite",
+          background: "radial-gradient(ellipse at 30% 50%, rgba(0,0,0,0.15) 0%, transparent 60%)",
         }}
       />
     </div>

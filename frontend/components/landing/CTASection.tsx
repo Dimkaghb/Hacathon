@@ -22,7 +22,6 @@ export default function CTASection() {
           Get Started
         </Link>
         
-        {/* Footer */}
         <div className="absolute bottom-8 text-white text-sm">
           Axel 2026
         </div>
