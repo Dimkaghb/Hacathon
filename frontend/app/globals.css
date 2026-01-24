@@ -24,3 +24,14 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
 }
+
+@keyframes slowFade {
+  0%, 100% { 
+    opacity: 0.1; 
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 0.25; 
+    transform: scale(1.02);
+  }
+}
