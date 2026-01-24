@@ -320,7 +320,15 @@ export default function FigmaCanvas({ onElementsChange, tool: externalTool, onTo
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         onWheel={handleWheel}
-        className="cursor-crosshair"
+        className={
+          isPanning
+            ? "cursor-grabbing"
+            : tool === "hand"
+            ? "cursor-grab"
+            : tool === "select"
+            ? "cursor-default"
+            : "cursor-crosshair"
+        }
         style={{ display: "block" }}
       />
     </div>

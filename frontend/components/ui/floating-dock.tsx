@@ -17,15 +17,17 @@ export const FloatingDock = ({
   items,
   desktopClassName,
   mobileClassName,
+  activeId,
 }: {
-  items: { title: string; icon: React.ReactNode; href: string; onClick?: () => void }[];
+  items: { title: string; icon: React.ReactNode; href: string; onClick?: () => void; id?: string }[];
   desktopClassName?: string;
   mobileClassName?: string;
+  activeId?: string;
 }) => {
   return (
     <>
-      <FloatingDockDesktop items={items} className={desktopClassName} />
-      <FloatingDockMobile items={items} className={mobileClassName} />
+      <FloatingDockDesktop items={items} className={desktopClassName} activeId={activeId} />
+      <FloatingDockMobile items={items} className={mobileClassName} activeId={activeId} />
     </>
   );
 };
@@ -33,9 +35,11 @@ export const FloatingDock = ({
 const FloatingDockMobile = ({
   items,
   className,
+  activeId,
 }: {
-  items: { title: string; icon: React.ReactNode; href: string; onClick?: () => void }[];
+  items: { title: string; icon: React.ReactNode; href: string; onClick?: () => void; id?: string }[];
   className?: string;
+  activeId?: string;
 }) => {
   const [open, setOpen] = useState(false);
   return (
@@ -73,7 +77,12 @@ const FloatingDockMobile = ({
                       setOpen(false);
                     }
                   }}
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-50 dark:bg-neutral-900"
+                  className={cn(
+                    "flex h-10 w-10 items-center justify-center rounded-full transition-colors",
+                    item.id === activeId
+                      ? "bg-blue-500 dark:bg-blue-600"
+                      : "bg-gray-50 dark:bg-neutral-900"
+                  )}
                 >
                   <div className="h-4 w-4">{item.icon}</div>
                 </a>
@@ -95,9 +104,11 @@ const FloatingDockMobile = ({
 const FloatingDockDesktop = ({
   items,
   className,
+  activeId,
 }: {
-  items: { title: string; icon: React.ReactNode; href: string; onClick?: () => void }[];
+  items: { title: string; icon: React.ReactNode; href: string; onClick?: () => void; id?: string }[];
   className?: string;
+  activeId?: string;
 }) => {
   let mouseX = useMotionValue(Infinity);
   return (
@@ -110,7 +121,7 @@ const FloatingDockDesktop = ({
       )}
     >
       {items.map((item) => (
-        <IconContainer mouseX={mouseX} key={item.title} {...item} />
+        <IconContainer mouseX={mouseX} key={item.title} {...item} isActive={item.id === activeId} />
       ))}
     </motion.div>
   );
@@ -122,12 +133,16 @@ function IconContainer({
   icon,
   href,
   onClick,
+  id,
+  isActive,
 }: {
   mouseX: MotionValue;
   title: string;
   icon: React.ReactNode;
   href: string;
   onClick?: () => void;
+  id?: string;
+  isActive?: boolean;
 }) {
   let ref = useRef<HTMLDivElement>(null);
 
@@ -185,7 +200,12 @@ function IconContainer({
         style={{ width, height }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        className="relative flex aspect-square items-center justify-center rounded-full bg-gray-200 dark:bg-neutral-800"
+        className={cn(
+          "relative flex aspect-square items-center justify-center rounded-full transition-colors",
+          isActive
+            ? "bg-blue-500 dark:bg-blue-600"
+            : "bg-gray-200 dark:bg-neutral-800"
+        )}
       >
         <AnimatePresence>
           {hovered && (
