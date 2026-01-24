@@ -3,6 +3,10 @@
     "framer": {
       "type": "sse",
       "url": "https://mcp.unframer.co/sse?id=769e81f2af5fea8b1a3e3e2afdc214f5b9cad68b3f6ebb59a7265aedc91efcd7&secret=hcvgFvCY6ydZwHE0yaekxeyUpW8O5Ja4"
+    },
+    "context7": {
+      "type": "sse",
+      "url": "https://https://mcp.context7.com/mcp/stream?api_key=ctx7sk-fbb88064-b589-4822-b1e9-9acde65e8643"
     }
   }
 }

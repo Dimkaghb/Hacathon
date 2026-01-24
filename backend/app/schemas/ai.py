@@ -49,12 +49,17 @@ class VideoGenerateRequest(BaseModel):
     aspect_ratio: AspectRatio = AspectRatio.RATIO_16_9
     duration: int = 8
     negative_prompt: Optional[str] = None
+    seed: Optional[int] = None  # For reproducibility
+    num_videos: int = 1  # Generate multiple candidates (1-4)
+    use_fast_model: bool = False  # Use faster but lower quality model
 
 
 class VideoExtendRequest(BaseModel):
     node_id: UUID
     video_url: str
     prompt: str
+    seed: Optional[int] = None
+    extension_count: int = 1  # Track extension number (max 20)
 
 
 class JobStatusResponse(BaseModel):

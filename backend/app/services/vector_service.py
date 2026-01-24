@@ -27,8 +27,13 @@ class VectorService:
             )
         return self._client
 
-    async def _ensure_collection(self):
-        """Ensure the collection exists with proper configuration."""
+    async def _ensure_collection(self, vector_size: int = 768):
+        """
+        Ensure the collection exists with proper configuration.
+
+        Args:
+            vector_size: Dimension of vectors (768 for text-embedding-004)
+        """
         if self._collection_initialized:
             return
 
@@ -42,7 +47,7 @@ class VectorService:
                 self.client.create_collection(
                     collection_name=settings.QDRANT_COLLECTION,
                     vectors_config=VectorParams(
-                        size=768,  # text-embedding-004 dimension
+                        size=vector_size,  # text-embedding-004 dimension
                         distance=Distance.COSINE,
                     ),
                 )

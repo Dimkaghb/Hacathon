@@ -19,7 +19,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # Redis for job queue
+  # Redis for Celery broker and result backend
   redis:
     image: redis:7-alpine
     container_name: videogen-redis
@@ -33,7 +33,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # Qdrant vector database
+  # Qdrant vector database for face embeddings
   qdrant:
     image: qdrant/qdrant:latest
     container_name: videogen-qdrant
@@ -76,12 +76,12 @@ services:
       timeout: 10s
       retries: 3
 
-  # Worker for video generation
-  worker-video:
+  # Celery worker for video generation (long-running tasks)
+  celery-video:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: videogen-worker-video
+    container_name: videogen-celery-video
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/videogen
       - REDIS_URL=redis://redis:6379/0
@@ -90,18 +90,20 @@ services:
     env_file:
       - .env
     depends_on:
-      - api
-    command: python -m app.workers.runner --type video_generation
+      - redis
+      - postgres
+      - qdrant
+    command: celery -A app.core.celery_app:celery_app worker -Q video -c 2 -l INFO --max-tasks-per-child=10
     volumes:
       - .:/app
     restart: unless-stopped
 
-  # Worker for face analysis
-  worker-face:
+  # Celery worker for face analysis
+  celery-face:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: videogen-worker-face
+    container_name: videogen-celery-face
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/videogen
       - REDIS_URL=redis://redis:6379/0
@@ -110,28 +112,27 @@ services:
     env_file:
       - .env
     depends_on:
-      - api
-    command: python -m app.workers.runner --type face_analysis
+      - redis
+      - postgres
+      - qdrant
+    command: celery -A app.core.celery_app:celery_app worker -Q face,default -c 4 -l INFO --max-tasks-per-child=50
     volumes:
       - .:/app
     restart: unless-stopped
 
-  # Worker for video extension
-  worker-extension:
+  # Flower - Celery monitoring dashboard
+  flower:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: videogen-worker-extension
+    container_name: videogen-flower
     environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/videogen
-      - REDIS_URL=redis://redis:6379/0
-      - QDRANT_HOST=qdrant
-      - QDRANT_PORT=6333
-    env_file:
-      - .env
+      - CELERY_BROKER_URL=redis://redis:6379/0
+    ports:
+      - "5555:5555"
     depends_on:
-      - api
-    command: python -m app.workers.runner --type video_extension
+      - redis
+    command: celery -A app.core.celery_app:celery_app flower --port=5555
     volumes:
       - .:/app
     restart: unless-stopped

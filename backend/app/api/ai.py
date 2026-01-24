@@ -1,10 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+"""
+AI Operations API
+
+Provides endpoints for:
+- Face analysis and character creation
+- Prompt enhancement
+- Video generation (text-to-video, image-to-video)
+- Video extension
+"""
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from uuid import UUID
 
 from app.core.database import get_db
-from app.core.redis import job_queue
 from app.models.user import User
 from app.models.node import Node, NodeStatus
 from app.models.job import Job, JobType, JobStatus
@@ -24,16 +32,26 @@ from app.schemas.ai import (
 from app.api.deps import get_current_user, verify_project_access
 from app.services.prompt_service import prompt_service
 
+# Import Celery tasks
+from app.tasks.video_tasks import generate_video as generate_video_task
+from app.tasks.video_tasks import extend_video as extend_video_task
+from app.tasks.face_tasks import analyze_face as analyze_face_task
+
 router = APIRouter()
 
 
 @router.post("/analyze-face", response_model=JobStatusResponse)
 async def analyze_face(
     request: FaceAnalysisRequest,
-    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    Analyze a face image and create a character.
+
+    This extracts visual embeddings for character consistency
+    in video generation.
+    """
     # Verify project access
     result = await db.execute(
         select(Project).where(
@@ -71,7 +89,7 @@ async def analyze_face(
     await db.commit()
     await db.refresh(node)
 
-    # Create job
+    # Create job record
     job = Job(
         node_id=node.id,
         type=JobType.FACE_ANALYSIS,
@@ -81,15 +99,14 @@ async def analyze_face(
     await db.commit()
     await db.refresh(job)
 
-    # Enqueue job
-    await job_queue.enqueue({
-        "job_id": str(job.id),
-        "type": "face_analysis",
-        "node_id": str(node.id),
-        "character_id": str(character.id),
-        "project_id": str(request.project_id),
-        "image_url": request.image_url,
-    })
+    # Dispatch Celery task
+    analyze_face_task.delay(
+        job_id=str(job.id),
+        node_id=str(node.id),
+        project_id=str(request.project_id),
+        character_id=str(character.id),
+        image_url=request.image_url,
+    )
 
     return JobStatusResponse(
         job_id=job.id,
@@ -105,6 +122,11 @@ async def enhance_prompt(
     request: PromptEnhanceRequest,
     current_user: User = Depends(get_current_user),
 ):
+    """
+    Enhance a video generation prompt using AI.
+
+    Adds cinematographic details and visual guidance for better results.
+    """
     enhanced = await prompt_service.enhance_prompt(
         prompt=request.prompt,
         style=request.style,
@@ -119,6 +141,15 @@ async def generate_video(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    Generate a video using Veo 3.1.
+
+    Supports:
+    - Text-to-video generation
+    - Image-to-video generation (when image_url provided)
+    - Character consistency (when character_id provided)
+    - Multiple video candidates (num_videos > 1)
+    """
     # Verify node exists and user has access
     result = await db.execute(
         select(Node)
@@ -139,7 +170,7 @@ async def generate_video(
     node.status = NodeStatus.PROCESSING
     await db.commit()
 
-    # Create job
+    # Create job record
     job = Job(
         node_id=node.id,
         type=JobType.VIDEO_GENERATION,
@@ -149,20 +180,22 @@ async def generate_video(
     await db.commit()
     await db.refresh(job)
 
-    # Enqueue job
-    await job_queue.enqueue({
-        "job_id": str(job.id),
-        "type": "video_generation",
-        "node_id": str(node.id),
-        "project_id": str(node.project_id),
-        "prompt": request.prompt,
-        "image_url": request.image_url,
-        "character_id": str(request.character_id) if request.character_id else None,
-        "resolution": request.resolution.value,
-        "aspect_ratio": request.aspect_ratio.value,
-        "duration": request.duration,
-        "negative_prompt": request.negative_prompt,
-    })
+    # Dispatch Celery task
+    generate_video_task.delay(
+        job_id=str(job.id),
+        node_id=str(node.id),
+        project_id=str(node.project_id),
+        prompt=request.prompt,
+        image_url=request.image_url,
+        character_id=str(request.character_id) if request.character_id else None,
+        resolution=request.resolution.value,
+        aspect_ratio=request.aspect_ratio.value,
+        duration=request.duration,
+        negative_prompt=request.negative_prompt,
+        seed=request.seed,
+        num_videos=request.num_videos,
+        use_fast_model=request.use_fast_model,
+    )
 
     return JobStatusResponse(
         job_id=job.id,
@@ -179,6 +212,12 @@ async def extend_video(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """
+    Extend an existing video with temporal continuity.
+
+    Uses Veo's video extension capability for seamless continuation.
+    Note: Extensions are limited to 720p and max 20 extensions.
+    """
     # Verify node exists and user has access
     result = await db.execute(
         select(Node)
@@ -195,11 +234,18 @@ async def extend_video(
             detail="Node not found",
         )
 
+    # Validate extension count
+    if request.extension_count > 20:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Maximum extension limit is 20",
+        )
+
     # Update node status
     node.status = NodeStatus.PROCESSING
     await db.commit()
 
-    # Create job
+    # Create job record
     job = Job(
         node_id=node.id,
         type=JobType.VIDEO_EXTENSION,
@@ -209,15 +255,16 @@ async def extend_video(
     await db.commit()
     await db.refresh(job)
 
-    # Enqueue job
-    await job_queue.enqueue({
-        "job_id": str(job.id),
-        "type": "video_extension",
-        "node_id": str(node.id),
-        "project_id": str(node.project_id),
-        "video_url": request.video_url,
-        "prompt": request.prompt,
-    })
+    # Dispatch Celery task
+    extend_video_task.delay(
+        job_id=str(job.id),
+        node_id=str(node.id),
+        project_id=str(node.project_id),
+        video_url=request.video_url,
+        prompt=request.prompt,
+        seed=request.seed,
+        extension_count=request.extension_count,
+    )
 
     return JobStatusResponse(
         job_id=job.id,
@@ -234,6 +281,7 @@ async def get_job_status(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Get the status of a job."""
     result = await db.execute(
         select(Job)
         .join(Node)
@@ -268,6 +316,7 @@ async def create_character(
     project: Project = Depends(verify_project_access),
     db: AsyncSession = Depends(get_db),
 ):
+    """Create a character without face analysis."""
     character = Character(
         project_id=project.id,
         name=character_data.name,
@@ -285,6 +334,7 @@ async def list_characters(
     project: Project = Depends(verify_project_access),
     db: AsyncSession = Depends(get_db),
 ):
+    """List all characters in a project."""
     result = await db.execute(
         select(Character).where(Character.project_id == project.id)
     )
