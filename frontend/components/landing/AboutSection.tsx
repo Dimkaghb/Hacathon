@@ -1,9 +1,44 @@
 "use client";
 
-import Image from "next/image";
-import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 
 export default function AboutSection() {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [shouldLoadVideo, setShouldLoadVideo] = useState(false);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && !shouldLoadVideo) {
+            setShouldLoadVideo(true);
+          }
+          if (videoRef.current && shouldLoadVideo) {
+            if (entry.isIntersecting) {
+              videoRef.current.play().catch(() => {});
+            } else {
+              videoRef.current.pause();
+            }
+          }
+        });
+      },
+      {
+        rootMargin: "100px",
+      }
+    );
+
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
+    }
+
+    return () => {
+      if (containerRef.current) {
+        observer.unobserve(containerRef.current);
+      }
+    };
+  }, [shouldLoadVideo]);
+
   return (
     <section className="w-full bg-[#0a0a0a] px-6 py-24 md:px-12">
       <div className="mx-auto flex max-w-[1440px] flex-col gap-12 lg:flex-row">
@@ -24,14 +59,30 @@ export default function AboutSection() {
           </div>
         </div>
         
-        <div className="relative h-[400px] md:h-[500px] lg:h-[600px] flex-1 overflow-hidden rounded-2xl">
-          <Image
-            src="https://framerusercontent.com/images/KbjJDzXJGXQmextyD2imXP0pn8.webp"
-            alt="AI video generation workflow"
-            fill
-            className="object-cover"
-            sizes="(max-width: 1024px) 100vw, 50vw"
-          />
+        <div 
+          ref={containerRef}
+          className="relative aspect-[9/16] md:aspect-[3/4] lg:aspect-[4/5] max-h-[400px] md:max-h-[450px] lg:max-h-[500px] min-h-[300px] md:min-h-[350px] w-full lg:w-auto lg:flex-1 overflow-hidden rounded-2xl flex items-center justify-center bg-black/20"
+          style={{ transform: "translateZ(0)", willChange: "transform" }}
+        >
+          {shouldLoadVideo ? (
+            <video
+              ref={videoRef}
+              src="/heroVideo.mp4"
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="none"
+              className="w-full h-full object-cover"
+                style={{ 
+                objectPosition: "center top",
+                transform: "translateZ(0)",
+                willChange: "transform",
+              }}
+            />
+          ) : (
+            <div className="w-full h-full bg-black/40" />
+          )}
         </div>
       </div>
     </section>

@@ -1,26 +1,23 @@
 "use client";
 
+import Image from "next/image";
+
 export default function FeaturesSection() {
   const features = [
     {
       title: "Node-Based Editor",
       description: "Visual workflow canvas like Figma",
-      gradient: "from-blue-900/20 to-purple-900/20",
-    },
-    {
-      title: "Character Consistency",
-      description: "Face embeddings for same character across videos",
-      gradient: "from-emerald-900/20 to-teal-900/20",
-    },
-    {
-      title: "AI Video Generation",
-      description: "Google Veo 3.1 integration",
-      gradient: "from-pink-900/20 to-rose-900/20",
+      image: "/node.png",
     },
     {
       title: "Video Extensions",
       description: "Extend videos seamlessly up to 20x",
-      gradient: "from-amber-900/20 to-orange-900/20",
+      image: "/extention.png",
+    },
+    {
+      title: "Character Consistency",
+      description: "Facial vector embedding for same character across videos",
+      image: "/consistency.jpg",
     },
   ];
 
@@ -36,16 +33,24 @@ export default function FeaturesSection() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-6">
           {features.map((feature, index) => (
-            <div key={index} className="group relative flex flex-col gap-4">
-              <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-gray-900">
-                <div className={`absolute inset-0 bg-gradient-to-tr ${feature.gradient} group-hover:scale-105 transition-transform duration-500`} />
+            <div 
+              key={index} 
+              className="group relative flex flex-col gap-4"
+            >
+              <div className="relative aspect-[16/10] w-full overflow-hidden rounded-lg bg-gray-900">
+                <Image
+                  src={feature.image}
+                  alt={feature.title}
+                  fill
+                  className="object-cover group-hover:scale-105 transition-transform duration-500"
+                />
               </div>
               <div className="flex justify-between items-start">
                 <div>
-                  <h4 className="text-xl font-medium">{feature.title}</h4>
-                  <p className="text-gray-400">{feature.description}</p>
+                  <h4 className="text-lg font-medium">{feature.title}</h4>
+                  <p className="text-sm text-gray-400 mt-1">{feature.description}</p>
                 </div>
               </div>
             </div>
