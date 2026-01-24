@@ -35,7 +35,7 @@ class Settings(BaseSettings):
 
     # App
     DEBUG: bool = True
-    CORS_ORIGINS: List[str] = ["http://localhost:3000"]
+    CORS_ORIGINS: List[str] = ["*"]  # Allow all origins for development
 
     # Veo Configuration
     VEO_MODEL: str = "veo-3.1-generate-preview"

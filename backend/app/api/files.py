@@ -55,10 +55,10 @@ async def upload_file_direct(
         content_type=content_type,
     )
 
-    # Generate a signed download URL (valid for 1 year for images)
+    # Generate a signed download URL (valid for 7 days - max allowed by GCS)
     download_url = await storage_service.generate_download_url(
         object_name=object_name,
-        expiration_minutes=525600,  # 1 year
+        expiration_minutes=10080,  # 7 days (max allowed by GCS)
     )
 
     return {
