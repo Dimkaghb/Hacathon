@@ -168,7 +168,15 @@ class VeoService:
             # IMAGE-TO-VIDEO: Load and pass actual image
             logger.info(f"Image-to-video generation from: {image_url}")
 
-            image_bytes = await self._load_image_bytes(image_url)
+            try:
+                image_bytes = await self._load_image_bytes(image_url)
+                if not image_bytes or len(image_bytes) == 0:
+                    raise ValueError(f"Failed to load image from {image_url}: empty or invalid image data")
+                logger.debug(f"Loaded image: {len(image_bytes)} bytes")
+            except Exception as e:
+                logger.error(f"Failed to load image from {image_url}: {e}")
+                raise Exception(f"Failed to load image for video generation: {str(e)}")
+            
             mime_type = self._get_mime_type(image_url)
 
             # Create image object for Veo
@@ -199,8 +207,15 @@ class VeoService:
                 ),
             )
 
-        logger.info(f"Video generation started with operation: {operation.name}")
-        return operation.name
+        # Validate operation was created
+        if not operation or not hasattr(operation, "name") or not operation.name:
+            raise ValueError("Failed to create video generation operation: no operation name returned")
+        
+        operation_id = operation.name
+        logger.info(f"Video generation started with operation: {operation_id}")
+        logger.debug(f"Operation details - type: {type(operation)}, name: {operation_id}")
+        
+        return operation_id
 
     async def extend_video(
         self,
@@ -270,40 +285,50 @@ class VeoService:
         Returns:
             Dict with 'done', 'result', 'error', and 'progress' keys
         """
+        if not operation_id:
+            raise ValueError("operation_id cannot be empty")
+        
+        logger.debug(f"Polling operation: {operation_id}")
+        
         loop = asyncio.get_event_loop()
 
-        # Create operation object from name/ID
-        operation = types.GenerateVideosOperation(name=operation_id)
-        
-        # Get the latest status
-        operation = await loop.run_in_executor(
-            None,
-            lambda: self.client.operations.get(operation),
-        )
+        # Try SDK method first
+        try:
+            # Create operation object from name/ID
+            operation = types.GenerateVideosOperation(name=operation_id)
+            
+            # Get the latest status
+            operation = await loop.run_in_executor(
+                None,
+                lambda: self.client.operations.get(operation),
+            )
 
-        result = {
-            "done": operation.done,
-            "result": None,
-            "error": None,
-            "metadata": None,
-        }
+            result = {
+                "done": operation.done,
+                "result": None,
+                "error": None,
+                "metadata": None,
+            }
 
-        if operation.done:
-            if hasattr(operation, "error") and operation.error:
-                error_msg = str(operation.error)
-                logger.error(f"Operation {operation_id} failed: {error_msg}")
-                result["error"] = error_msg
-            elif hasattr(operation, "response") and operation.response:
-                result["result"] = operation.response
-                logger.info(f"Operation {operation_id} completed successfully")
+            if operation.done:
+                if hasattr(operation, "error") and operation.error:
+                    error_msg = str(operation.error)
+                    logger.error(f"Operation {operation_id} failed: {error_msg}")
+                    result["error"] = error_msg
+                elif hasattr(operation, "response") and operation.response:
+                    result["result"] = operation.response
+                    logger.info(f"Operation {operation_id} completed successfully")
 
-        # Extract metadata for progress estimation if available
-        if hasattr(operation, "metadata") and operation.metadata:
-            result["metadata"] = operation.metadata
+            # Extract metadata for progress estimation if available
+            if hasattr(operation, "metadata") and operation.metadata:
+                result["metadata"] = operation.metadata
 
             return result
-        else:
-            # Fallback to REST API polling
+            
+        except Exception as e:
+            # SDK call failed, fallback to REST API
+            error_msg = str(e)
+            logger.warning(f"SDK polling failed for {operation_id}: {error_msg}, falling back to REST API")
             return await self._poll_operation_rest_api(operation_id)
     
     async def _poll_operation_rest_api(self, operation_id: str) -> Dict[str, Any]:
@@ -313,15 +338,28 @@ class VeoService:
         The operation_id should be in the format returned by generateVideos,
         which might be a full resource name like "operations/...".
         """
-        # Ensure operation_id is in the correct format
-        # If it's just an ID, prepend the operations path
-        if not operation_id.startswith("operations/"):
-            if operation_id.startswith("/"):
-                operation_id = operation_id.lstrip("/")
-            if not operation_id.startswith("operations/"):
-                operation_id = f"operations/{operation_id}"
+        if not operation_id:
+            raise ValueError("operation_id cannot be empty for REST API polling")
         
-        url = f"https://generativelanguage.googleapis.com/v1/{operation_id}"
+        # Normalize operation_id format
+        # The operation name from SDK might be in different formats:
+        # - "operations/abc123" (full path)
+        # - "/operations/abc123" (with leading slash)
+        # - "abc123" (just the ID)
+        original_id = operation_id
+        
+        # Remove leading slash if present
+        if operation_id.startswith("/"):
+            operation_id = operation_id.lstrip("/")
+        
+        # Ensure it starts with "operations/"
+        if not operation_id.startswith("operations/"):
+            operation_id = f"operations/{operation_id}"
+        
+        # Try v1beta endpoint first (for preview models)
+        url = f"https://generativelanguage.googleapis.com/v1beta/{operation_id}"
+        
+        logger.debug(f"Polling operation via REST API: {url} (original: {original_id})")
         
         async with httpx.AsyncClient() as client:
             try:
@@ -339,6 +377,7 @@ class VeoService:
                 response_data = result.get("response")
                 error = result.get("error")
                 
+                error_msg = None
                 if error:
                     error_msg = error.get("message", str(error)) if isinstance(error, dict) else str(error)
                     logger.warning(f"Operation has error: {error_msg}")
@@ -346,16 +385,51 @@ class VeoService:
                 return {
                     "done": done,
                     "result": response_data,
-                    "error": error_msg if error else None,
+                    "error": error_msg,
                 }
             except httpx.HTTPStatusError as e:
+                # If v1beta fails with 404, try v1 endpoint
+                if e.response.status_code == 404 and "v1beta" in url:
+                    logger.debug(f"v1beta endpoint returned 404, trying v1 endpoint")
+                    url_v1 = f"https://generativelanguage.googleapis.com/v1/{operation_id}"
+                    try:
+                        response = await client.get(
+                            url_v1,
+                            headers={
+                                "x-goog-api-key": settings.GEMINI_API_KEY,
+                            },
+                            timeout=30.0,
+                        )
+                        response.raise_for_status()
+                        result = response.json()
+                        
+                        done = result.get("done", False)
+                        response_data = result.get("response")
+                        error = result.get("error")
+                        
+                        error_msg = None
+                        if error:
+                            error_msg = error.get("message", str(error)) if isinstance(error, dict) else str(error)
+                        
+                        return {
+                            "done": done,
+                            "result": response_data,
+                            "error": error_msg,
+                        }
+                    except httpx.HTTPStatusError as e2:
+                        error_detail = e2.response.text if e2.response else str(e2)
+                        logger.error(f"HTTP error polling operation {original_id} (tried both v1beta and v1): {e2.response.status_code} - {error_detail}")
+                        raise Exception(
+                            f"Failed to poll operation: {e2.response.status_code} - {error_detail}"
+                        )
+                
                 error_detail = e.response.text if e.response else str(e)
-                logger.error(f"HTTP error polling operation {operation_id}: {e.response.status_code} - {error_detail}")
+                logger.error(f"HTTP error polling operation {original_id}: {e.response.status_code} - {error_detail}")
                 raise Exception(
                     f"Failed to poll operation: {e.response.status_code} - {error_detail}"
                 )
             except Exception as e:
-                logger.error(f"Error polling operation: {str(e)}")
+                logger.error(f"Error polling operation {original_id}: {str(e)}")
                 raise
 
     async def download_generated_video(

@@ -115,6 +115,9 @@ class VideoGenerationWorker(BaseWorker):
         while poll_count < max_polls:
             try:
                 result = await veo_service.poll_operation(operation_id)
+            except Exception as e:
+                logger.error(f"Error polling operation {operation_id}: {e}")
+                raise
 
             if result["done"]:
                 if result["error"]:
