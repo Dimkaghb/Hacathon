@@ -23,6 +23,7 @@ qdrant-client==1.12.1
 
 # Google Cloud and AI
 google-cloud-storage==2.19.0
+
 google-genai==1.60.0
 
 # HTTP client

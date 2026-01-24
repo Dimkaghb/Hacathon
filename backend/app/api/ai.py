@@ -299,6 +299,7 @@ async def get_job_status(
             detail="Job not found",
         )
 
+    result = job.result or {}
     return JobStatusResponse(
         job_id=job.id,
         node_id=job.node_id,
@@ -307,6 +308,48 @@ async def get_job_status(
         progress=job.progress,
         result=job.result,
         error=job.error,
+        progress_message=result.get("progress_message"),
+        stage=result.get("stage"),
+    )
+
+
+@router.get("/nodes/{node_id}/jobs/latest", response_model=JobStatusResponse)
+async def get_latest_job_for_node(
+    node_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get the latest job for a node (useful for resuming polling after page reload)"""
+    result = await db.execute(
+        select(Job)
+        .join(Node)
+        .join(Project)
+        .where(
+            Job.node_id == node_id,
+            Project.user_id == current_user.id,
+        )
+        .order_by(Job.created_at.desc())
+        .limit(1)
+    )
+    job = result.scalar_one_or_none()
+
+    if not job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No job found for this node",
+        )
+
+    result = job.result or {}
+    return JobStatusResponse(
+        job_id=job.id,
+        node_id=job.node_id,
+        type=job.type.value,
+        status=job.status.value,
+        progress=job.progress,
+        result=job.result,
+        error=job.error,
+        progress_message=result.get("progress_message"),
+        stage=result.get("stage"),
     )
 
 

@@ -43,14 +43,20 @@ class StorageService:
             content_type: MIME type of the file
 
         Returns:
-            Public URL or GCS URI of the uploaded file
+            Signed download URL (valid for 1 year) for the uploaded file
         """
         loop = asyncio.get_event_loop()
 
         def _upload():
             blob = self.bucket.blob(object_name)
             blob.upload_from_string(file_data, content_type=content_type)
-            return f"gs://{settings.GCS_BUCKET}/{object_name}"
+            # Generate a signed download URL (valid for 1 year)
+            signed_url = blob.generate_signed_url(
+                version="v4",
+                expiration=timedelta(days=365),
+                method="GET",
+            )
+            return signed_url
 
         url = await loop.run_in_executor(None, _upload)
         return url

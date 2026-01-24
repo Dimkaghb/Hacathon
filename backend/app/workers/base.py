@@ -42,6 +42,8 @@ class BaseWorker(ABC):
         result: Optional[Dict[str, Any]] = None,
         error: Optional[str] = None,
         operation_id: Optional[str] = None,
+        progress_message: Optional[str] = None,
+        stage: Optional[str] = None,
     ):
         """Update job status in database."""
         async with AsyncSessionLocal() as db:
@@ -59,6 +61,15 @@ class BaseWorker(ABC):
                     job.error = error
                 if operation_id is not None:
                     job.external_operation_id = operation_id
+                
+                # Store progress message and stage in result
+                if progress_message is not None or stage is not None:
+                    current_result = job.result or {}
+                    if progress_message is not None:
+                        current_result["progress_message"] = progress_message
+                    if stage is not None:
+                        current_result["stage"] = stage
+                    job.result = current_result
 
                 await db.commit()
 
@@ -119,7 +130,8 @@ class BaseWorker(ABC):
             return False
 
         if job_data.get("type") != self.job_type:
-            # Put it back if it's not our job type
+            # Put it back at the end of the queue if it's not our job type
+            # Use enqueue to add to end (FIFO order) - it will use existing job_id
             await job_queue.enqueue(job_data)
             return False
 
@@ -144,7 +156,12 @@ class BaseWorker(ABC):
 
             # Update with success
             await self.update_job_status(
-                job_id, JobStatus.COMPLETED, progress=100, result=result
+                job_id, 
+                JobStatus.COMPLETED, 
+                progress=100, 
+                result=result,
+                progress_message="Video generation completed successfully",
+                stage="completed"
             )
             await self.update_node_status(node_id, NodeStatus.COMPLETED, data=result)
 
@@ -157,7 +174,28 @@ class BaseWorker(ABC):
             return True
 
         except Exception as e:
-            logger.error(f"Job {job_id} failed: {str(e)}")
+            import traceback
+            error_details = f"{str(e)}\n\nTraceback:\n{traceback.format_exc()}"
+            logger.error(f"Job {job_id} failed: {error_details}")
+            
+            # Update job and node with error details
+            await self.update_job_status(
+                job_id,
+                JobStatus.FAILED,
+                error=error_details,
+                progress_message=f"Error: {str(e)}",
+                stage="failed"
+            )
+            await self.update_node_status(
+                node_id,
+                NodeStatus.FAILED,
+                error_message=str(e)
+            )
+            
+            if project_id:
+                await self.broadcast_progress(
+                    project_id, node_id, 0, "failed", f"Failed: {str(e)}"
+                )
 
             await self.update_job_status(
                 job_id, JobStatus.FAILED, error=str(e)

@@ -46,18 +46,28 @@ async def upload_file_direct(
     object_name = f"uploads/{current_user.id}/{file_id}.{extension}"
 
     content = await file.read()
-    url = await storage_service.upload_file(
+    content_type = file.content_type or "application/octet-stream"
+    
+    # Upload to storage
+    gcs_uri = await storage_service.upload_file(
         file_data=content,
         object_name=object_name,
-        content_type=file.content_type or "application/octet-stream",
+        content_type=content_type,
+    )
+
+    # Generate a signed download URL (valid for 1 year for images)
+    download_url = await storage_service.generate_download_url(
+        object_name=object_name,
+        expiration_minutes=525600,  # 1 year
     )
 
     return {
         "file_id": file_id,
-        "url": url,
+        "url": download_url,  # Return signed URL instead of GCS URI
+        "gcs_uri": gcs_uri,  # Keep GCS URI for reference
         "object_name": object_name,
         "filename": file.filename,
-        "content_type": file.content_type,
+        "content_type": content_type,
         "size": len(content),
     }
 
