@@ -42,6 +42,14 @@ export default function FigmaCanvas({ onElementsChange, tool: externalTool, onTo
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+  
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    elementId: string | null;
+  }>({ visible: false, x: 0, y: 0, elementId: null });
 
   // Pan and zoom state
   const [scale, setScale] = useState(1);
@@ -62,6 +70,18 @@ export default function FigmaCanvas({ onElementsChange, tool: externalTool, onTo
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  // Close context menu on click outside
+  useEffect(() => {
+    const handleClick = () => {
+      setContextMenu({ visible: false, x: 0, y: 0, elementId: null });
+    };
+    
+    if (contextMenu.visible) {
+      window.addEventListener("click", handleClick);
+      return () => window.removeEventListener("click", handleClick);
+    }
+  }, [contextMenu.visible]);
 
   // Draw canvas
   const draw = useCallback(() => {
@@ -296,6 +316,26 @@ export default function FigmaCanvas({ onElementsChange, tool: externalTool, onTo
     }
   };
 
+  const handleAvatarContextMenu = (e: React.MouseEvent, elementId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
+      elementId,
+    });
+    setSelectedId(elementId);
+  };
+
+  const handleContextMenuConnect = () => {
+    if (contextMenu.elementId) {
+      // TODO: Implement connection logic
+      console.log("Connect clicked for element:", contextMenu.elementId);
+    }
+    setContextMenu({ visible: false, x: 0, y: 0, elementId: null });
+  };
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -376,9 +416,29 @@ export default function FigmaCanvas({ onElementsChange, tool: externalTool, onTo
                 setElements(updatedElements);
                 onElementsChange?.(updatedElements);
               }}
+              onContextMenu={(e) => handleAvatarContextMenu(e, element.id)}
             />
           </div>
         ))}
+
+      {/* Context Menu */}
+      {contextMenu.visible && (
+        <div
+          className="fixed bg-white dark:bg-neutral-800 shadow-lg rounded-lg border border-gray-200 dark:border-neutral-700 py-1 min-w-[150px] z-50"
+          style={{
+            left: `${contextMenu.x}px`,
+            top: `${contextMenu.y}px`,
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-neutral-700 dark:text-white transition-colors"
+            onClick={handleContextMenuConnect}
+          >
+            Connect
+          </button>
+        </div>
+      )}
     </div>
   );
 }
