@@ -17,13 +17,21 @@ export interface CanvasElement {
 
 interface FigmaCanvasProps {
   onElementsChange?: (elements: CanvasElement[]) => void;
+  tool?: "select" | "hand" | "rectangle" | "circle" | "text";
+  onToolChange?: (tool: "select" | "hand" | "rectangle" | "circle" | "text") => void;
 }
 
-export default function FigmaCanvas({ onElementsChange }: FigmaCanvasProps) {
+export default function FigmaCanvas({ onElementsChange, tool: externalTool, onToolChange }: FigmaCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [elements, setElements] = useState<CanvasElement[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [tool, setTool] = useState<"select" | "rectangle" | "circle" | "text">("select");
+  const [internalTool, setInternalTool] = useState<"select" | "hand" | "rectangle" | "circle" | "text">("select");
+
+  const tool = externalTool ?? internalTool;
+  const setTool = (newTool: "select" | "hand" | "rectangle" | "circle" | "text") => {
+    setInternalTool(newTool);
+    onToolChange?.(newTool);
+  };
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
@@ -166,8 +174,8 @@ export default function FigmaCanvas({ onElementsChange }: FigmaCanvasProps) {
   const handleMouseDown = (e: React.MouseEvent) => {
     const coords = getCanvasCoords(e);
 
-    if (e.button === 1 || (e.button === 0 && e.altKey)) {
-      // Middle click or Alt+click for panning
+    if (e.button === 1 || (e.button === 0 && e.altKey) || tool === "hand") {
+      // Middle click, Alt+click, or hand tool for panning
       setIsPanning(true);
       setPanStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
       return;
@@ -182,7 +190,7 @@ export default function FigmaCanvas({ onElementsChange }: FigmaCanvasProps) {
       } else {
         setSelectedId(null);
       }
-    } else {
+    } else if (tool === "rectangle" || tool === "circle" || tool === "text") {
       // Create new element
       const newElement: CanvasElement = {
         id: `element-${Date.now()}`,
@@ -297,72 +305,9 @@ export default function FigmaCanvas({ onElementsChange }: FigmaCanvasProps) {
 
   return (
     <div className="relative w-full h-full">
-      {/* Toolbar */}
-      <div className="absolute top-4 left-4 z-10 flex gap-2 bg-white dark:bg-neutral-900 p-2 rounded-lg shadow-lg border border-gray-200 dark:border-neutral-800">
-        <button
-          onClick={() => setTool("select")}
-          className={`px-4 py-2 rounded transition-colors ${
-            tool === "select"
-              ? "bg-blue-500 text-white"
-              : "bg-gray-100 dark:bg-neutral-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-neutral-700"
-          }`}
-        >
-          Select
-        </button>
-        <button
-          onClick={() => setTool("rectangle")}
-          className={`px-4 py-2 rounded transition-colors ${
-            tool === "rectangle"
-              ? "bg-blue-500 text-white"
-              : "bg-gray-100 dark:bg-neutral-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-neutral-700"
-          }`}
-        >
-          Rectangle
-        </button>
-        <button
-          onClick={() => setTool("circle")}
-          className={`px-4 py-2 rounded transition-colors ${
-            tool === "circle"
-              ? "bg-blue-500 text-white"
-              : "bg-gray-100 dark:bg-neutral-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-neutral-700"
-          }`}
-        >
-          Circle
-        </button>
-        <button
-          onClick={() => setTool("text")}
-          className={`px-4 py-2 rounded transition-colors ${
-            tool === "text"
-              ? "bg-blue-500 text-white"
-              : "bg-gray-100 dark:bg-neutral-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-neutral-700"
-          }`}
-        >
-          Text
-        </button>
-        {selectedId && (
-          <>
-            <div className="w-px bg-gray-300 dark:bg-neutral-700 mx-2" />
-            <button
-              onClick={handleDuplicate}
-              className="px-4 py-2 rounded bg-gray-100 dark:bg-neutral-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-neutral-700 transition-colors"
-            >
-              Duplicate
-            </button>
-            <button
-              onClick={handleDelete}
-              className="px-4 py-2 rounded bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
-            >
-              Delete
-            </button>
-          </>
-        )}
-      </div>
-
-      {/* Info Panel */}
-      <div className="absolute top-4 right-4 z-10 bg-white dark:bg-neutral-900 p-3 rounded-lg shadow-lg border border-gray-200 dark:border-neutral-800 text-sm text-gray-600 dark:text-gray-400">
-        <div>Zoom: {Math.round(scale * 100)}%</div>
-        <div className="text-xs mt-1">Scroll to zoom</div>
-        <div className="text-xs">Alt+Drag to pan</div>
+      {/* Zoom indicator - bottom center */}
+      <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-10 bg-white dark:bg-neutral-900 px-4 py-2 rounded-lg shadow-lg border border-gray-200 dark:border-neutral-800 text-sm text-gray-600 dark:text-gray-400 font-medium">
+        {Math.round(scale * 100)}%
       </div>
 
       {/* Canvas */}

@@ -3,16 +3,21 @@
 import React from "react";
 import { FloatingDock } from "@/components/ui/floating-dock";
 import {
-  IconBrandGithub,
-  IconBrandX,
-  IconExchange,
   IconHome,
-  IconNewSection,
-  IconTerminal2,
+  IconHandGrab,
+  IconPointer,
+  IconComponents,
+  IconGitBranch,
+  IconPlayerPlay,
+  IconDotsVertical,
 } from "@tabler/icons-react";
-import Image from "next/image";
 
-export default function FloatingDockDemo() {
+interface FloatingDockDemoProps {
+  onToolSelect?: (tool: "select" | "hand" | "rectangle") => void;
+  currentTool?: string;
+}
+
+export default function FloatingDockDemo({ onToolSelect, currentTool }: FloatingDockDemoProps) {
   const links = [
     {
       title: "Home",
@@ -22,49 +27,47 @@ export default function FloatingDockDemo() {
       href: "/",
     },
     {
-      title: "Products",
+      title: "Hand Tool",
       icon: (
-        <IconTerminal2 className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+        <IconHandGrab className="h-full w-full text-neutral-500 dark:text-neutral-300" />
       ),
       href: "#",
+      onClick: () => onToolSelect?.("hand"),
+    },
+    {
+      title: "Cursor",
+      icon: (
+        <IconPointer className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+      ),
+      href: "#",
+      onClick: () => onToolSelect?.("select"),
     },
     {
       title: "Components",
       icon: (
-        <IconNewSection className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+        <IconComponents className="h-full w-full text-neutral-500 dark:text-neutral-300" />
       ),
       href: "#",
     },
     {
-      title: "Canvas",
+      title: "Branch",
       icon: (
-        <Image
-          src="https://assets.aceternity.com/logo-dark.png"
-          width={20}
-          height={20}
-          alt="Canvas Logo"
-        />
+        <IconGitBranch className="h-full w-full text-neutral-500 dark:text-neutral-300" />
       ),
       href: "#",
     },
     {
-      title: "Changelog",
+      title: "Shapes",
       icon: (
-        <IconExchange className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+        <IconPlayerPlay className="h-full w-full text-neutral-500 dark:text-neutral-300" />
       ),
       href: "#",
+      onClick: () => onToolSelect?.("rectangle"),
     },
     {
-      title: "Twitter",
+      title: "More",
       icon: (
-        <IconBrandX className="h-full w-full text-neutral-500 dark:text-neutral-300" />
-      ),
-      href: "#",
-    },
-    {
-      title: "GitHub",
-      icon: (
-        <IconBrandGithub className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+        <IconDotsVertical className="h-full w-full text-neutral-500 dark:text-neutral-300" />
       ),
       href: "#",
     },
