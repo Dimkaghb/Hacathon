@@ -339,12 +339,26 @@ export default function NodeEditor({ projectId }: NodeEditorProps) {
 
       // Start polling for job status
       startJobPolling(job.job_id, nodeId);
-    } catch (error) {
-      console.error('Failed to generate video:', error);
+    } catch (error: any) {
+      const errorMessage = error?.message || error?.toString() || 'Unknown error';
+      console.error('Failed to generate video:', {
+        nodeId,
+        error: errorMessage,
+        fullError: error,
+      });
       setNodes((prev) =>
         prev.map((n) =>
           n.id === nodeId
-            ? { ...n, status: 'failed' as const, error_message: 'Generation failed' }
+            ? { 
+                ...n, 
+                status: 'failed' as const, 
+                error_message: errorMessage,
+                data: {
+                  ...n.data,
+                  progress_message: `Failed to start generation: ${errorMessage}`,
+                  stage: 'error',
+                },
+              }
             : n
         )
       );
@@ -357,18 +371,18 @@ export default function NodeEditor({ projectId }: NodeEditorProps) {
       try {
         const status = await aiApi.getJobStatus(jobId);
         
-        // Debug logging
-        if (process.env.NODE_ENV === 'development') {
-          console.log('Job status update:', {
-            jobId,
-            nodeId,
-            status: status.status,
-            progress: status.progress,
-            hasResult: !!status.result,
-            resultKeys: status.result ? Object.keys(status.result) : [],
-            error: status.error,
-          });
-        }
+        // Debug logging with detailed info
+        console.log('Job status update:', {
+          jobId,
+          nodeId,
+          status: status.status,
+          progress: status.progress,
+          stage: status.stage,
+          progress_message: status.progress_message,
+          hasResult: !!status.result,
+          resultKeys: status.result ? Object.keys(status.result) : [],
+          error: status.error,
+        });
         
         setNodes((prev) =>
           prev.map((n) => {
@@ -384,6 +398,9 @@ export default function NodeEditor({ projectId }: NodeEditorProps) {
                   data: { 
                     ...n.data, 
                     video_url: videoUrl,
+                    progress: 100,
+                    progress_message: status.progress_message || 'Video ready',
+                    stage: status.stage || 'completed',
                     ...(status.result && typeof status.result === 'object' ? status.result : {}),
                   },
                 };
@@ -392,6 +409,12 @@ export default function NodeEditor({ projectId }: NodeEditorProps) {
                   ...n,
                   status: 'failed' as const,
                   error_message: status.error || 'Generation failed',
+                  data: {
+                    ...n.data,
+                    progress: status.progress,
+                    progress_message: status.progress_message || status.error || 'Generation failed',
+                    stage: status.stage || 'failed',
+                  },
                 };
               } else {
                 // Update progress for processing status
@@ -401,6 +424,8 @@ export default function NodeEditor({ projectId }: NodeEditorProps) {
                   data: {
                     ...n.data,
                     progress: status.progress,
+                    progress_message: status.progress_message || `Processing... ${status.progress}%`,
+                    stage: status.stage || 'processing',
                   },
                 };
               }
@@ -429,8 +454,70 @@ export default function NodeEditor({ projectId }: NodeEditorProps) {
             return next;
           });
         }
-      } catch (error) {
-        console.error('Failed to poll job status:', error);
+      } catch (error: any) {
+        const errorMessage = error?.message || error?.toString() || 'Unknown error';
+        console.error('Failed to poll job status:', {
+          jobId,
+          nodeId,
+          error: errorMessage,
+          status: error?.status,
+          fullError: error,
+        });
+        
+        // If it's a 404, the job might not exist - stop polling
+        if (error?.status === 404) {
+          console.warn(`Job ${jobId} not found, stopping polling`);
+          const timeout = jobPolling.get(jobId);
+          if (timeout) {
+            clearTimeout(timeout);
+            setJobPolling((prev) => {
+              const next = new Map(prev);
+              next.delete(jobId);
+              return next;
+            });
+          }
+          // Reset node to idle if job doesn't exist
+          setNodes((prev) =>
+            prev.map((n) => {
+              if (n.id === nodeId) {
+                return { 
+                  ...n, 
+                  status: 'idle' as const,
+                  data: {
+                    ...n.data,
+                    progress_message: `Job not found (may have been deleted)`,
+                  },
+                };
+              }
+              return n;
+            })
+          );
+        } else {
+          // For other errors, update node with error info but continue polling
+          setNodes((prev) =>
+            prev.map((n) => {
+              if (n.id === nodeId) {
+                return {
+                  ...n,
+                  data: {
+                    ...n.data,
+                    progress_message: `Polling error: ${errorMessage}`,
+                    stage: 'error',
+                  },
+                };
+              }
+              return n;
+            })
+          );
+          
+          // Continue polling but with longer interval
+          const timeout = setTimeout(poll, 10000); // Poll every 10s on error
+          setJobPolling((prev) => {
+            const next = new Map(prev);
+            next.set(jobId, timeout);
+            return next;
+          });
+        }
       }
     };
 

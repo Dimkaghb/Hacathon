@@ -438,6 +438,8 @@ export const aiApi = {
       progress: number;
       result?: Record<string, any>;
       error?: string;
+      progress_message?: string;
+      stage?: string;
     }>(`/api/ai/jobs/${jobId}`);
   },
 
@@ -450,6 +452,8 @@ export const aiApi = {
       progress: number;
       result?: Record<string, any>;
       error?: string;
+      progress_message?: string;
+      stage?: string;
     }>(`/api/ai/nodes/${nodeId}/jobs/latest`);
   },
 };

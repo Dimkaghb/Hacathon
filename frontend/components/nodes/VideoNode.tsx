@@ -147,11 +147,33 @@ export default function VideoNode({
           )}
         </button>
 
-        {/* Status Messages */}
+        {/* Status Messages - Detailed Progress */}
         {node.status === 'processing' && (
-          <div className="text-xs text-yellow-400 flex items-center gap-2">
-            <div className="w-3 h-3 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin"></div>
-            <span>Generating... {node.data?.progress ? `${node.data.progress}%` : ''}</span>
+          <div className="space-y-2 p-2 bg-[#1a1a1a] rounded border border-yellow-500/30">
+            <div className="text-xs text-yellow-400 flex items-center gap-2">
+              <div className="w-3 h-3 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin"></div>
+              <span className="font-semibold">
+                {node.data?.progress_message || `Generating... ${node.data?.progress || 0}%`}
+              </span>
+            </div>
+            {node.data?.progress !== undefined && (
+              <div className="w-full bg-gray-700 rounded-full h-1.5">
+                <div
+                  className="bg-yellow-400 h-1.5 rounded-full transition-all duration-300"
+                  style={{ width: `${node.data.progress}%` }}
+                />
+              </div>
+            )}
+            {node.data?.stage && (
+              <div className="text-xs text-gray-400">
+                Stage: <span className="text-gray-300 capitalize">{node.data.stage}</span>
+              </div>
+            )}
+            {node.data?.progress !== undefined && (
+              <div className="text-xs text-gray-400">
+                Progress: <span className="text-gray-300">{node.data.progress}%</span>
+              </div>
+            )}
           </div>
         )}
         {/* Show video if it exists, regardless of status (in case status wasn't updated) */}
@@ -192,10 +214,27 @@ export default function VideoNode({
             )}
           </div>
         )}
-        {node.status === 'failed' && node.error_message && (
-          <div className="text-xs text-red-400 flex items-center gap-1">
-            <span>⚠️</span>
-            <span>{node.error_message}</span>
+        {node.status === 'failed' && (
+          <div className="space-y-2 p-2 bg-[#1a1a1a] rounded border border-red-500/30">
+            <div className="text-xs text-red-400 flex items-center gap-1 font-semibold">
+              <span>⚠️</span>
+              <span>Generation Failed</span>
+            </div>
+            {node.error_message && (
+              <div className="text-xs text-red-300 whitespace-pre-wrap break-words">
+                {node.error_message}
+              </div>
+            )}
+            {node.data?.progress_message && node.data.progress_message !== node.error_message && (
+              <div className="text-xs text-gray-400">
+                Last status: {node.data.progress_message}
+              </div>
+            )}
+            {node.data?.stage && (
+              <div className="text-xs text-gray-500">
+                Failed at stage: {node.data.stage}
+              </div>
+            )}
           </div>
         )}
         {connectedPrompt && node.status !== 'processing' && (

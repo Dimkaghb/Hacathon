@@ -251,6 +251,7 @@ async def get_job_status(
             detail="Job not found",
         )
 
+    result = job.result or {}
     return JobStatusResponse(
         job_id=job.id,
         node_id=job.node_id,
@@ -259,6 +260,8 @@ async def get_job_status(
         progress=job.progress,
         result=job.result,
         error=job.error,
+        progress_message=result.get("progress_message"),
+        stage=result.get("stage"),
     )
 
 
@@ -288,6 +291,7 @@ async def get_latest_job_for_node(
             detail="No job found for this node",
         )
 
+    result = job.result or {}
     return JobStatusResponse(
         job_id=job.id,
         node_id=job.node_id,
@@ -296,6 +300,8 @@ async def get_latest_job_for_node(
         progress=job.progress,
         result=job.result,
         error=job.error,
+        progress_message=result.get("progress_message"),
+        stage=result.get("stage"),
     )
 
 
