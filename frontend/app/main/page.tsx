@@ -7,13 +7,13 @@ import type { CanvasElement } from "@/components/canvas/FigmaCanvas";
 
 export default function MainPage() {
   const [elements, setElements] = useState<CanvasElement[]>([]);
-  const [tool, setTool] = useState<"select" | "hand" | "rectangle" | "circle" | "text">("select");
+  const [tool, setTool] = useState<"select" | "hand" | "rectangle" | "circle" | "text" | "avatar">("select");
 
   const handleElementsChange = (newElements: CanvasElement[]) => {
     setElements(newElements);
   };
 
-  const handleToolChange = (newTool: "select" | "hand" | "rectangle") => {
+  const handleToolChange = (newTool: "select" | "hand" | "rectangle" | "avatar") => {
     setTool(newTool);
   };
 

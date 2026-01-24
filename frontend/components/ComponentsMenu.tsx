@@ -14,9 +14,10 @@ interface ComponentsMenuProps {
   isOpen: boolean;
   onClose: () => void;
   position: { x: number; y: number };
+  onComponentSelect?: (component: string) => void;
 }
 
-export default function ComponentsMenu({ isOpen, onClose, position }: ComponentsMenuProps) {
+export default function ComponentsMenu({ isOpen, onClose, position, onComponentSelect }: ComponentsMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -40,7 +41,7 @@ export default function ComponentsMenu({ isOpen, onClose, position }: Components
       name: "Avatar",
       icon: <IconUser className="w-5 h-5" />,
       onClick: () => {
-        console.log("Avatar clicked");
+        onComponentSelect?.("avatar");
         onClose();
       },
     },

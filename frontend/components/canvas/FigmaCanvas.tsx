@@ -1,10 +1,15 @@
 "use client";
 
 import React, { useRef, useState, useEffect, useCallback } from "react";
+import dynamic from "next/dynamic";
+
+const AvatarComponent = dynamic(() => import("./AvatarComponent"), {
+  ssr: false,
+});
 
 export interface CanvasElement {
   id: string;
-  type: "rectangle" | "circle" | "text";
+  type: "rectangle" | "circle" | "text" | "avatar";
   x: number;
   y: number;
   width: number;
@@ -13,22 +18,24 @@ export interface CanvasElement {
   text?: string;
   fontSize?: number;
   rotation?: number;
+  imageUrl?: string;
+  description?: string;
 }
 
 interface FigmaCanvasProps {
   onElementsChange?: (elements: CanvasElement[]) => void;
-  tool?: "select" | "hand" | "rectangle" | "circle" | "text";
-  onToolChange?: (tool: "select" | "hand" | "rectangle" | "circle" | "text") => void;
+  tool?: "select" | "hand" | "rectangle" | "circle" | "text" | "avatar";
+  onToolChange?: (tool: "select" | "hand" | "rectangle" | "circle" | "text" | "avatar") => void;
 }
 
 export default function FigmaCanvas({ onElementsChange, tool: externalTool, onToolChange }: FigmaCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [elements, setElements] = useState<CanvasElement[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [internalTool, setInternalTool] = useState<"select" | "hand" | "rectangle" | "circle" | "text">("select");
+  const [internalTool, setInternalTool] = useState<"select" | "hand" | "rectangle" | "circle" | "text" | "avatar">("select");
 
   const tool = externalTool ?? internalTool;
-  const setTool = (newTool: "select" | "hand" | "rectangle" | "circle" | "text") => {
+  const setTool = (newTool: "select" | "hand" | "rectangle" | "circle" | "text" | "avatar") => {
     setInternalTool(newTool);
     onToolChange?.(newTool);
   };
@@ -95,8 +102,10 @@ export default function FigmaCanvas({ onElementsChange, tool: externalTool, onTo
       ctx.stroke();
     }
 
-    // Draw elements
+    // Draw elements (skip avatars as they are React components)
     elements.forEach((element) => {
+      if (element.type === "avatar") return; // Skip avatars, they're rendered as React components
+
       ctx.save();
       ctx.fillStyle = element.fill;
 
@@ -190,18 +199,20 @@ export default function FigmaCanvas({ onElementsChange, tool: externalTool, onTo
       } else {
         setSelectedId(null);
       }
-    } else if (tool === "rectangle" || tool === "circle" || tool === "text") {
+    } else if (tool === "rectangle" || tool === "circle" || tool === "text" || tool === "avatar") {
       // Create new element
       const newElement: CanvasElement = {
         id: `element-${Date.now()}`,
         type: tool,
         x: coords.x,
         y: coords.y,
-        width: tool === "text" ? 150 : 100,
-        height: tool === "text" ? 30 : tool === "circle" ? 100 : 80,
-        fill: getRandomColor(),
+        width: tool === "text" ? 150 : tool === "avatar" ? 300 : 100,
+        height: tool === "text" ? 30 : tool === "circle" ? 100 : tool === "avatar" ? 400 : 80,
+        fill: tool === "avatar" ? "transparent" : getRandomColor(),
         text: tool === "text" ? "Double click to edit" : undefined,
         fontSize: tool === "text" ? 20 : undefined,
+        imageUrl: tool === "avatar" ? "" : undefined,
+        description: tool === "avatar" ? "" : undefined,
       };
 
       const updatedElements = [...elements, newElement];
@@ -331,6 +342,43 @@ export default function FigmaCanvas({ onElementsChange, tool: externalTool, onTo
         }
         style={{ display: "block" }}
       />
+
+      {/* Render Avatar Components */}
+      {elements
+        .filter((el) => el.type === "avatar")
+        .map((element) => (
+          <div
+            key={element.id}
+            className="absolute pointer-events-auto"
+            style={{
+              left: `${element.x * scale + offset.x}px`,
+              top: `${element.y * scale + offset.y}px`,
+              transform: `scale(${scale})`,
+              transformOrigin: "top left",
+            }}
+          >
+            <AvatarComponent
+              width={element.width}
+              height={element.height}
+              initialImage={element.imageUrl}
+              initialDescription={element.description}
+              onImageChange={(imageUrl) => {
+                const updatedElements = elements.map((el) =>
+                  el.id === element.id ? { ...el, imageUrl } : el
+                );
+                setElements(updatedElements);
+                onElementsChange?.(updatedElements);
+              }}
+              onDescriptionChange={(description) => {
+                const updatedElements = elements.map((el) =>
+                  el.id === element.id ? { ...el, description } : el
+                );
+                setElements(updatedElements);
+                onElementsChange?.(updatedElements);
+              }}
+            />
+          </div>
+        ))}
     </div>
   );
 }

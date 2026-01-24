@@ -14,7 +14,7 @@ import {
 } from "@tabler/icons-react";
 
 interface FloatingDockDemoProps {
-  onToolSelect?: (tool: "select" | "hand" | "rectangle") => void;
+  onToolSelect?: (tool: "select" | "hand" | "rectangle" | "avatar") => void;
   currentTool?: string;
 }
 
@@ -110,6 +110,11 @@ export default function FloatingDockDemo({ onToolSelect, currentTool }: Floating
         isOpen={componentsMenuOpen}
         onClose={() => setComponentsMenuOpen(false)}
         position={menuPosition}
+        onComponentSelect={(component) => {
+          if (component === "avatar") {
+            onToolSelect?.("avatar");
+          }
+        }}
       />
     </>
   );
