@@ -2,7 +2,16 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+1. Make sure the backend server is running (see backend README)
+2. Create a `.env.local` file in the frontend directory:
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
+
+### Running the Development Server
 
 ```bash
 npm run dev
@@ -17,6 +26,17 @@ bun dev
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+
+## Backend Connection
+
+The frontend is connected to the FastAPI backend. See [API_CONNECTION.md](./API_CONNECTION.md) for detailed documentation on:
+
+- API client usage
+- React hooks for API calls
+- Authentication flow
+- Project management
+
+The backend connection status is displayed in the top-right corner on the `/main` page.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 

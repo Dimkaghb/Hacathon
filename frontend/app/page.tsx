@@ -9,10 +9,15 @@ export default function Home() {
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-6 md:px-12 bg-gradient-to-b from-black/50 to-transparent backdrop-blur-sm">
         <div className="text-2xl font-bold tracking-tight">Vence</div>
-        <div className="hidden gap-8 text-sm font-medium opacity-90 md:flex">
-          <Link href="/work" className="hover:opacity-70 transition-opacity">Work</Link>
-          <Link href="/about" className="hover:opacity-70 transition-opacity">About</Link>
-          <Link href="/contact" className="hover:opacity-70 transition-opacity">Contact</Link>
+        <div className="flex gap-4 md:gap-8 text-sm font-medium opacity-90 items-center">
+          <div className="hidden md:flex gap-8">
+            <Link href="/work" className="hover:opacity-70 transition-opacity">Work</Link>
+            <Link href="/about" className="hover:opacity-70 transition-opacity">About</Link>
+            <Link href="/contact" className="hover:opacity-70 transition-opacity">Contact</Link>
+          </div>
+          <Link href="/login" className="px-4 py-2 bg-white text-black rounded-lg hover:bg-gray-100 transition-colors font-semibold text-sm">
+            Sign In
+          </Link>
         </div>
       </nav>
 
