@@ -168,6 +168,13 @@ export default function NodeEditor({ projectId }: NodeEditorProps) {
   // Handle connection start
   const handleConnectionStart = (handleId: string, nodeId: string) => {
     setConnectingFrom({ nodeId, handleId });
+    // Initialize temp connection at the handle position
+    const sourceNode = nodes.find((n) => n.id === nodeId);
+    if (sourceNode && containerRef.current) {
+      const sourceX = sourceNode.position_x + 240; // Right side of node
+      const sourceY = sourceNode.position_y + 50; // Middle of node
+      setTempConnection({ x: sourceX, y: sourceY });
+    }
   };
 
   // Handle connection end
@@ -207,49 +214,78 @@ export default function NodeEditor({ projectId }: NodeEditorProps) {
     setTempConnection(null);
   };
 
-  // Handle canvas mouse events for connections
-  const handleCanvasMouseMove = (e: React.MouseEvent) => {
-    if (connectingFrom && containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      // Calculate position in transformed coordinate space
-      const x = (e.clientX - rect.left - offset.x) / scale;
-      const y = (e.clientY - rect.top - offset.y) / scale;
-      setTempConnection({ x, y });
-    }
-  };
+  // Global mouse tracking for connections
+  useEffect(() => {
+    if (!connectingFrom) return;
 
-  const handleCanvasMouseUp = () => {
-    if (connectingFrom) {
-      setConnectingFrom(null);
-      setTempConnection(null);
-    }
-  };
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        // Calculate position in transformed coordinate space
+        const x = (e.clientX - rect.left - offset.x) / scale;
+        const y = (e.clientY - rect.top - offset.y) / scale;
+        setTempConnection({ x, y });
+      }
+    };
+
+    window.addEventListener('mousemove', handleGlobalMouseMove);
+
+    return () => {
+      window.removeEventListener('mousemove', handleGlobalMouseMove);
+    };
+  }, [connectingFrom, offset, scale]);
 
   // Handle pan
   const handleMouseDown = (e: React.MouseEvent) => {
-    // Only pan if clicking on the background, not on nodes
-    if (e.target === containerRef.current || (e.target as HTMLElement).tagName === 'svg') {
-      if (e.button === 1 || (e.button === 0 && e.altKey)) {
-        e.preventDefault();
-        setIsPanning(true);
-        setPanStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
-      }
+    const target = e.target as HTMLElement;
+    
+    // Cancel connection if clicking on background
+    if (connectingFrom && !target.closest('.node-handle')) {
+      setConnectingFrom(null);
+      setTempConnection(null);
+    }
+    
+    // Check if clicking on a node or node handle
+    const isNodeElement = target.closest('[data-node-container] > div') !== null && 
+                          target.closest('.node-handle') === null &&
+                          !target.closest('button') &&
+                          !target.closest('input') &&
+                          !target.closest('textarea') &&
+                          !target.closest('select');
+    
+    // Allow panning with:
+    // - Middle mouse button (button === 1) - anywhere
+    // - Left click with Alt key - anywhere
+    // - Left click on background (not on node) - empty space only
+    const isBackground = target === containerRef.current || 
+                         target.tagName === 'svg' ||
+                         (target.closest('[data-node-container]') !== null && !isNodeElement);
+    
+    if (e.button === 1 || (e.button === 0 && e.altKey)) {
+      // Middle mouse or Alt+click - always pan
+      e.preventDefault();
+      setIsPanning(true);
+      setPanStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
+    } else if (e.button === 0 && isBackground && !isNodeElement && !connectingFrom) {
+      // Left click on background - pan (but not when connecting)
+      e.preventDefault();
+      setIsPanning(true);
+      setPanStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
     }
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (isPanning) {
+      e.preventDefault();
       setOffset({
         x: e.clientX - panStart.x,
         y: e.clientY - panStart.y,
       });
     }
-    handleCanvasMouseMove(e);
   };
 
   const handleMouseUp = () => {
     setIsPanning(false);
-    handleCanvasMouseUp();
   };
 
   // Handle zoom
@@ -576,15 +612,16 @@ export default function NodeEditor({ projectId }: NodeEditorProps) {
           x2={targetX}
           y2={targetY}
           stroke="#3b82f6"
-          strokeWidth="2"
+          strokeWidth="4"
           markerEnd="url(#arrowhead)"
-          className="cursor-pointer hover:stroke-blue-400"
+          className="cursor-pointer hover:stroke-blue-400 transition-colors"
           onClick={(e) => {
             e.stopPropagation();
             if (confirm('Delete this connection?')) {
               handleConnectionDelete(connection.id);
             }
           }}
+          style={{ pointerEvents: 'stroke' }}
         />
       </g>
     );
@@ -652,13 +689,13 @@ export default function NodeEditor({ projectId }: NodeEditorProps) {
           <defs>
             <marker
               id="arrowhead"
-              markerWidth="10"
-              markerHeight="10"
-              refX="9"
-              refY="3"
+              markerWidth="12"
+              markerHeight="12"
+              refX="10"
+              refY="4"
               orient="auto"
             >
-              <polygon points="0 0, 10 3, 0 6" fill="#3b82f6" />
+              <polygon points="0 0, 12 4, 0 8" fill="#3b82f6" />
             </marker>
           </defs>
           <g>
@@ -670,13 +707,15 @@ export default function NodeEditor({ projectId }: NodeEditorProps) {
               const sourceY = sourceNode.position_y + 50;
               return (
                 <line
+                  key="temp-connection"
                   x1={sourceX}
                   y1={sourceY}
                   x2={tempConnection.x}
                   y2={tempConnection.y}
                   stroke="#3b82f6"
-                  strokeWidth="2"
+                  strokeWidth="4"
                   strokeDasharray="5,5"
+                  markerEnd="url(#arrowhead)"
                   pointerEvents="none"
                 />
               );

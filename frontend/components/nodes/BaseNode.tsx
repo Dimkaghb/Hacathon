@@ -133,14 +133,15 @@ export default function BaseNode({
       {inputHandles.map((handle) => (
         <div
           key={handle.id}
-          className="node-handle absolute left-0 w-4 h-4 bg-blue-500 rounded-full border-2 border-[#1e1e1e] cursor-crosshair hover:bg-blue-400 hover:scale-125 transition-transform z-10"
+          className="node-handle absolute left-0 w-6 h-6 bg-blue-500 rounded-full border-2 border-[#1e1e1e] cursor-crosshair hover:bg-blue-400 hover:scale-125 transition-transform z-10 shadow-lg"
           style={{
             top: handle.position.y,
-            left: -8,
+            left: -12,
             transform: 'translateY(-50%)',
           }}
           onMouseDown={(e) => {
             e.stopPropagation();
+            e.preventDefault();
             onConnectionEnd?.(handle.id, node.id);
           }}
           title="Input"
@@ -183,14 +184,15 @@ export default function BaseNode({
       {outputHandles.map((handle) => (
         <div
           key={handle.id}
-          className="node-handle absolute right-0 w-4 h-4 bg-green-500 rounded-full border-2 border-[#1e1e1e] cursor-crosshair hover:bg-green-400 hover:scale-125 transition-transform z-10"
+          className="node-handle absolute right-0 w-6 h-6 bg-green-500 rounded-full border-2 border-[#1e1e1e] cursor-crosshair hover:bg-green-400 hover:scale-125 transition-transform z-10 shadow-lg"
           style={{
             top: handle.position.y,
-            right: -8,
+            right: -12,
             transform: 'translateY(-50%)',
           }}
           onMouseDown={(e) => {
             e.stopPropagation();
+            e.preventDefault();
             onConnectionStart?.(handle.id, node.id);
           }}
           title="Output"
