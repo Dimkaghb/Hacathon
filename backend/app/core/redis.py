@@ -29,12 +29,23 @@ class JobQueue:
         self.queue_name = queue_name
 
     async def enqueue(self, job_data: dict) -> str:
+        """
+        Enqueue a job to Redis queue.
+        
+        Args:
+            job_data: Dictionary containing job information, must include 'job_id'
+        
+        Returns:
+            The job_id that was enqueued
+        """
         client = await get_redis()
         import json
-        import uuid
 
-        job_id = str(uuid.uuid4())
-        job_data["job_id"] = job_id
+        # Use the job_id from job_data (should already be set from database)
+        job_id = job_data.get("job_id")
+        if not job_id:
+            raise ValueError("job_data must contain 'job_id'")
+        
         await client.rpush(self.queue_name, json.dumps(job_data))
         return job_id
 

@@ -65,6 +65,8 @@ class JobStatusResponse(BaseModel):
     progress: int
     result: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
+    progress_message: Optional[str] = None  # Detailed progress message
+    stage: Optional[str] = None  # Current processing stage
 
 
 class CharacterCreate(BaseModel):
