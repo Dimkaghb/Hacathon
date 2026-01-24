@@ -19,7 +19,7 @@ export const FloatingDock = ({
   mobileClassName,
   activeId,
 }: {
-  items: { title: string; icon: React.ReactNode; href: string; onClick?: () => void; id?: string }[];
+  items: { title: string; icon: React.ReactNode; href: string; onClick?: (e: React.MouseEvent) => void; id?: string }[];
   desktopClassName?: string;
   mobileClassName?: string;
   activeId?: string;
@@ -37,7 +37,7 @@ const FloatingDockMobile = ({
   className,
   activeId,
 }: {
-  items: { title: string; icon: React.ReactNode; href: string; onClick?: () => void; id?: string }[];
+  items: { title: string; icon: React.ReactNode; href: string; onClick?: (e: React.MouseEvent) => void; id?: string }[];
   className?: string;
   activeId?: string;
 }) => {
@@ -73,7 +73,7 @@ const FloatingDockMobile = ({
                   onClick={(e) => {
                     if (item.onClick) {
                       e.preventDefault();
-                      item.onClick();
+                      item.onClick(e);
                       setOpen(false);
                     }
                   }}
@@ -106,7 +106,7 @@ const FloatingDockDesktop = ({
   className,
   activeId,
 }: {
-  items: { title: string; icon: React.ReactNode; href: string; onClick?: () => void; id?: string }[];
+  items: { title: string; icon: React.ReactNode; href: string; onClick?: (e: React.MouseEvent) => void; id?: string }[];
   className?: string;
   activeId?: string;
 }) => {
@@ -140,7 +140,7 @@ function IconContainer({
   title: string;
   icon: React.ReactNode;
   href: string;
-  onClick?: () => void;
+  onClick?: (e: React.MouseEvent) => void;
   id?: string;
   isActive?: boolean;
 }) {
@@ -189,7 +189,7 @@ function IconContainer({
   const handleClick = (e: React.MouseEvent) => {
     if (onClick) {
       e.preventDefault();
-      onClick();
+      onClick(e);
     }
   };
 

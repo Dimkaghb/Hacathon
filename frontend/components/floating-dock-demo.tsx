@@ -1,7 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useState, useRef } from "react";
 import { FloatingDock } from "@/components/ui/floating-dock";
+import ComponentsMenu from "@/components/ComponentsMenu";
 import {
   IconHome,
   IconHandGrab,
@@ -18,6 +19,19 @@ interface FloatingDockDemoProps {
 }
 
 export default function FloatingDockDemo({ onToolSelect, currentTool }: FloatingDockDemoProps) {
+  const [componentsMenuOpen, setComponentsMenuOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
+  const componentsButtonRef = useRef<HTMLElement | null>(null);
+
+  const handleComponentsClick = (event: React.MouseEvent) => {
+    const target = event.currentTarget as HTMLElement;
+    const rect = target.getBoundingClientRect();
+    setMenuPosition({
+      x: rect.left + rect.width / 2,
+      y: rect.top,
+    });
+    setComponentsMenuOpen(!componentsMenuOpen);
+  };
   const getIconClass = (id: string) => {
     return currentTool === id
       ? "h-full w-full text-white"
@@ -39,7 +53,7 @@ export default function FloatingDockDemo({ onToolSelect, currentTool }: Floating
         <IconHandGrab className={getIconClass("hand")} />
       ),
       href: "#",
-      onClick: () => onToolSelect?.("hand"),
+      onClick: (e) => onToolSelect?.("hand"),
       id: "hand",
     },
     {
@@ -48,7 +62,7 @@ export default function FloatingDockDemo({ onToolSelect, currentTool }: Floating
         <IconPointer className={getIconClass("select")} />
       ),
       href: "#",
-      onClick: () => onToolSelect?.("select"),
+      onClick: (e) => onToolSelect?.("select"),
       id: "select",
     },
     {
@@ -57,6 +71,7 @@ export default function FloatingDockDemo({ onToolSelect, currentTool }: Floating
         <IconComponents className={getIconClass("components")} />
       ),
       href: "#",
+      onClick: handleComponentsClick,
       id: "components",
     },
     {
@@ -73,7 +88,7 @@ export default function FloatingDockDemo({ onToolSelect, currentTool }: Floating
         <IconPlayerPlay className={getIconClass("rectangle")} />
       ),
       href: "#",
-      onClick: () => onToolSelect?.("rectangle"),
+      onClick: (e) => onToolSelect?.("rectangle"),
       id: "rectangle",
     },
     {
@@ -87,8 +102,15 @@ export default function FloatingDockDemo({ onToolSelect, currentTool }: Floating
   ];
 
   return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50">
-      <FloatingDock items={links} activeId={currentTool} />
-    </div>
+    <>
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50">
+        <FloatingDock items={links} activeId={currentTool} />
+      </div>
+      <ComponentsMenu
+        isOpen={componentsMenuOpen}
+        onClose={() => setComponentsMenuOpen(false)}
+        position={menuPosition}
+      />
+    </>
   );
 }
