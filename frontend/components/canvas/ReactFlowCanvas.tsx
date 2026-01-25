@@ -65,6 +65,7 @@ export default function ReactFlowCanvas({ projectId }: ReactFlowCanvasProps) {
   const [loading, setLoading] = useState(true);
 
   // Helper function to get connected data (no useCallback to avoid circular deps)
+  // Flexible: extracts data from any connected node based on what data is available
   const getConnectedData = (nodeId: string, nodes: Node[], connections: BackendConnection[]) => {
     const videoConnections = connections.filter(c => c.target_node_id === nodeId);
 
@@ -75,14 +76,14 @@ export default function ReactFlowCanvas({ projectId }: ReactFlowCanvasProps) {
       const sourceNode = nodes.find(n => n.id === connection.source_node_id);
       if (!sourceNode) continue;
 
-      if (sourceNode.type === 'prompt') {
-        prompt = sourceNode.data?.prompt || '';
-      } else if (sourceNode.type === 'image') {
-        imageUrl = sourceNode.data?.image_url || '';
-      } else if (connection.target_handle === 'prompt-input') {
-        prompt = sourceNode.data?.prompt || '';
-      } else if (connection.target_handle === 'image-input') {
-        imageUrl = sourceNode.data?.image_url || '';
+      // Extract prompt data from any node that has it
+      if (sourceNode.data?.prompt && !prompt) {
+        prompt = sourceNode.data.prompt;
+      }
+      
+      // Extract image data from any node that has it
+      if (sourceNode.data?.image_url && !imageUrl) {
+        imageUrl = sourceNode.data.image_url;
       }
     }
 
@@ -384,17 +385,8 @@ export default function ReactFlowCanvas({ projectId }: ReactFlowCanvasProps) {
     
     if (!sourceNode || !targetNode) return;
 
-    // Validate: connection type matches handle (prompt to prompt-input, image to image-input)
-    if (targetNode.type === 'video') {
-      if (connection.targetHandle === 'prompt-input' && sourceNode.type !== 'prompt') {
-        console.warn('Only prompt nodes can connect to prompt-input');
-        return;
-      }
-      if (connection.targetHandle === 'image-input' && sourceNode.type !== 'image') {
-        console.warn('Only image nodes can connect to image-input');
-        return;
-      }
-    }
+    // Allow flexible connections - any source can connect to any target handle
+    // The video node will use whatever data is available from connected nodes
 
     // Validate: no duplicate connections to the same handle
     const exists = edges.some(
