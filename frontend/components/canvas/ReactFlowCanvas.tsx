@@ -309,9 +309,9 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
               ...n,
               data: {
                 ...n.data,
-                data: { ...n.data.data, ...data },
-                status: status || n.data.status,
-                error_message: errorMessage !== undefined ? errorMessage : n.data.error_message,
+                data: { ...(n.data?.data || {}), ...data },
+                status: status || n.data?.status,
+                error_message: errorMessage !== undefined ? errorMessage : n.data?.error_message,
               },
             }
           : n
@@ -429,12 +429,13 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
         connectionsApi.list(projectId, shareToken),
       ]);
 
-      setBackendNodes(nodesData);
-      setBackendConnections(connectionsData);
+      // Cast API response to match our Node type (API returns type as string)
+      setBackendNodes(nodesData as Node[]);
+      setBackendConnections(connectionsData as BackendConnection[]);
 
       // Transform to React Flow format (call functions directly, not from closure)
-      setNodes(transformBackendNodesToRF(nodesData, connectionsData));
-      setEdges(transformBackendConnectionsToRF(connectionsData));
+      setNodes(transformBackendNodesToRF(nodesData as Node[], connectionsData as BackendConnection[]));
+      setEdges(transformBackendConnectionsToRF(connectionsData as BackendConnection[]));
 
       // Resume polling for processing jobs
       const processingNodes = nodesData.filter(n => n.status === 'processing');
@@ -572,7 +573,7 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
       setEdges(eds => addEdge(newEdge, eds));
       
       // Create updated connections list for immediate use (avoid stale closure)
-      const updatedConnections = [...backendConnections, newConnection];
+      const updatedConnections = [...backendConnections, newConnection as BackendConnection];
       setBackendConnections(updatedConnections);
 
       // Update video/extension nodes if affected - pass updated connections to avoid stale closure
@@ -620,8 +621,8 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
         data: {},
       }, shareToken);
 
-      setBackendNodes(prev => [...prev, newNode]);
-      setNodes(nds => [...nds, ...transformBackendNodesToRF([newNode], backendConnections)]);
+      setBackendNodes(prev => [...prev, newNode as Node]);
+      setNodes(nds => [...nds, ...transformBackendNodesToRF([newNode as Node], backendConnections)]);
     } catch (error) {
       console.error('Failed to create node:', error);
     }
@@ -640,7 +641,7 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
       // Update React Flow state
       setNodes(nds =>
         nds.map(n =>
-          n.id === nodeId ? { ...n, data: { ...n.data, data: { ...n.data.data, ...data } } } : n
+          n.id === nodeId ? { ...n, data: { ...n.data, data: { ...(n.data?.data || {}), ...data } } } : n
         )
       );
     } catch (error) {

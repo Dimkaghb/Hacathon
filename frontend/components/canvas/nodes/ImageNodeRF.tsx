@@ -1,15 +1,16 @@
 "use client";
 
 import React, { useRef, useState } from 'react';
-import { Handle, Position, NodeProps } from '@xyflow/react';
+import { Handle, Position } from '@xyflow/react';
+import { CustomNodeProps } from './types';
 import { filesApi } from '@/lib/api';
 
-export default function ImageNodeRF({ data, selected }: NodeProps) {
+export default function ImageNodeRF({ data, selected }: CustomNodeProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
   // Access backend node data
-  const node = data.data || {};
+  const node = (data.data || {}) as Record<string, any>;
   const imageUrl = node.image_url || '';
   const status = data.status || 'idle';
 

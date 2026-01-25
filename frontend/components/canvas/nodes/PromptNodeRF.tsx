@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Handle, Position, NodeProps } from '@xyflow/react';
+import { Handle, Position } from '@xyflow/react';
+import { CustomNodeProps } from './types';
 
-export default function PromptNodeRF({ data, selected }: NodeProps) {
+export default function PromptNodeRF({ data, selected }: CustomNodeProps) {
   // Access backend node data
-  const node = data.data || {};
+  const node = (data.data || {}) as Record<string, any>;
   const [prompt, setPrompt] = useState(node.prompt || '');
 
   useEffect(() => {

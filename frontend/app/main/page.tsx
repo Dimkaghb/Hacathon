@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import ReactFlowCanvas from "@/components/canvas/ReactFlowCanvas";
 import BackendConnection from "@/components/BackendConnection";
@@ -8,7 +8,7 @@ import FigmaSidebar from "@/components/FigmaSidebar";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { projectsApi } from "@/lib/api";
 
-export default function MainPage() {
+function MainPageContent() {
   const { isAuthenticated, loading: authLoading, user, logout } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -215,5 +215,17 @@ export default function MainPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function MainPage() {
+  return (
+    <Suspense fallback={
+      <div className="w-full h-screen overflow-hidden bg-[#0a0a0a] flex items-center justify-center">
+        <div className="text-neutral-400">Loading...</div>
+      </div>
+    }>
+      <MainPageContent />
+    </Suspense>
   );
 }

@@ -1,10 +1,27 @@
+"use client";
+
 import { motion } from 'framer-motion';
 import { useEffect, useRef, useState, useMemo } from 'react';
 
-const buildKeyframes = (from, steps) => {
+interface BlurTextProps {
+  text?: string;
+  delay?: number;
+  className?: string;
+  animateBy?: 'words' | 'letters' | 'all';
+  direction?: string;
+  threshold?: number;
+  rootMargin?: string;
+  animationFrom?: Record<string, any>;
+  animationTo?: Record<string, any>[];
+  easing?: (t: number) => number;
+  onAnimationComplete?: () => void;
+  stepDuration?: number;
+}
+
+const buildKeyframes = (from: Record<string, any>, steps: Record<string, any>[]) => {
   const keys = new Set([...Object.keys(from), ...steps.flatMap(s => Object.keys(s))]);
 
-  const keyframes = {};
+  const keyframes: Record<string, any[]> = {};
   keys.forEach(k => {
     keyframes[k] = [from[k], ...steps.map(s => s[k])];
   });
@@ -15,19 +32,19 @@ const BlurText = ({
   text = '',
   delay = 200,
   className = '',
-  animateBy = 'words', // 'words', 'letters', or 'all'
+  animateBy = 'words',
   direction = 'top',
   threshold = 0.1,
   rootMargin = '0px',
   animationFrom,
   animationTo,
-  easing = t => t,
+  easing = (t: number) => t,
   onAnimationComplete,
   stepDuration = 0.35
-}) => {
+}: BlurTextProps) => {
   const elements = animateBy === 'all' ? [text] : animateBy === 'words' ? text.split(' ') : text.split('');
   const [inView, setInView] = useState(false);
-  const ref = useRef(null);
+  const ref = useRef<HTMLParagraphElement | null>(null);
 
   useEffect(() => {
     if (!ref.current) return;
@@ -35,7 +52,7 @@ const BlurText = ({
       ([entry]) => {
         if (entry.isIntersecting) {
           setInView(true);
-          observer.unobserve(ref.current);
+          if (ref.current) observer.unobserve(ref.current);
         }
       },
       { threshold, rootMargin }
@@ -95,12 +112,12 @@ const BlurText = ({
       {elements.map((segment, index) => {
         const animateKeyframes = buildKeyframes(fromSnapshot, toSnapshots);
 
-        const spanTransition = {
+        const spanTransition: Record<string, any> = {
           duration: totalDuration,
           times,
-          delay: (index * delay) / 1000
+          delay: (index * delay) / 1000,
+          ease: easing
         };
-        spanTransition.ease = easing;
 
         return (
           <motion.span

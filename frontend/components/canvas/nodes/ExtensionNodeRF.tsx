@@ -1,11 +1,12 @@
 "use client";
 
 import React from 'react';
-import { Handle, Position, NodeProps } from '@xyflow/react';
+import { Handle, Position } from '@xyflow/react';
+import { CustomNodeProps } from './types';
 
-export default function ExtensionNodeRF({ data, selected }: NodeProps) {
+export default function ExtensionNodeRF({ data, selected }: CustomNodeProps) {
   // Access backend node data
-  const node = data.data || {};
+  const node = (data.data || {}) as Record<string, any>;
   const status = data.status || 'idle';
   const errorMessage = data.error_message || '';
 

@@ -53,7 +53,7 @@ export default function FloatingDockDemo({ onToolSelect, currentTool }: Floating
         <IconHandGrab className={getIconClass("hand")} />
       ),
       href: "#",
-      onClick: (e) => onToolSelect?.("hand"),
+      onClick: (e: React.MouseEvent) => onToolSelect?.("hand"),
       id: "hand",
     },
     {
@@ -62,7 +62,7 @@ export default function FloatingDockDemo({ onToolSelect, currentTool }: Floating
         <IconPointer className={getIconClass("select")} />
       ),
       href: "#",
-      onClick: (e) => onToolSelect?.("select"),
+      onClick: (e: React.MouseEvent) => onToolSelect?.("select"),
       id: "select",
     },
     {
@@ -88,7 +88,7 @@ export default function FloatingDockDemo({ onToolSelect, currentTool }: Floating
         <IconPlayerPlay className={getIconClass("rectangle")} />
       ),
       href: "#",
-      onClick: (e) => onToolSelect?.("rectangle"),
+      onClick: (e: React.MouseEvent) => onToolSelect?.("rectangle"),
       id: "rectangle",
     },
     {

@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Handle, Position, NodeProps } from '@xyflow/react';
+import { Handle, Position } from '@xyflow/react';
+import { CustomNodeProps } from './types';
 
-export default function RatioNodeRF({ data, selected }: NodeProps) {
+export default function RatioNodeRF({ data, selected }: CustomNodeProps) {
   // Access backend node data
-  const node = data.data || {};
+  const node = (data.data || {}) as Record<string, any>;
   const [aspectRatio, setAspectRatio] = useState(node.aspect_ratio || '16:9');
 
   const ratioOptions = [
