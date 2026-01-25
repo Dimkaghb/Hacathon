@@ -143,13 +143,19 @@
 /* Node type colors - uniform styling */
 .rf-image-node,
 .rf-prompt-node,
-.rf-video-node {
+.rf-video-node,
+.rf-container-node,
+.rf-ratio-node,
+.rf-scene-node {
   border-color: #374151;
 }
 
 .rf-image-node.selected,
 .rf-prompt-node.selected,
-.rf-video-node.selected {
+.rf-video-node.selected,
+.rf-container-node.selected,
+.rf-ratio-node.selected,
+.rf-scene-node.selected {
   border-color: #6b7280;
   box-shadow: 0 0 0 2px rgba(107, 114, 128, 0.2), 0 4px 6px -1px rgba(0, 0, 0, 0.3);
 }

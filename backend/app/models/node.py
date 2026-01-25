@@ -12,6 +12,9 @@ class NodeType(str, enum.Enum):
     IMAGE = "image"
     PROMPT = "prompt"
     VIDEO = "video"
+    CONTAINER = "container"
+    RATIO = "ratio"
+    SCENE = "scene"
 
 
 class NodeStatus(str, enum.Enum):

@@ -24,7 +24,8 @@ import { nodesApi, connectionsApi, aiApi } from '@/lib/api';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { nodeTypes } from './nodes';
 import { edgeTypes } from './edges';
-import CanvasToolbar from './controls/CanvasToolbar';
+import { FloatingDock } from '@/components/ui/floating-dock';
+import { IconPhoto, IconMessageCircle, IconVideo, IconBox, IconAspectRatio, IconCameraRotate } from '@tabler/icons-react';
 
 interface ReactFlowCanvasProps {
   projectId: string;
@@ -415,7 +416,7 @@ export default function ReactFlowCanvas({ projectId }: ReactFlowCanvasProps) {
   }, [projectId, backendNodes, updateVideoNodeConnectedData]);
 
   // Handle node creation
-  const handleAddNode = async (type: 'image' | 'prompt' | 'video') => {
+  const handleAddNode = async (type: 'image' | 'prompt' | 'video' | 'container' | 'ratio' | 'scene') => {
     try {
       const newNode = await nodesApi.create(projectId, {
         type,
@@ -425,7 +426,7 @@ export default function ReactFlowCanvas({ projectId }: ReactFlowCanvasProps) {
       });
 
       setBackendNodes(prev => [...prev, newNode]);
-      setNodes(nds => [...nds, ...transformBackendNodesToRF([newNode])]);
+      setNodes(nds => [...nds, ...transformBackendNodesToRF([newNode], backendConnections)]);
     } catch (error) {
       console.error('Failed to create node:', error);
     }
@@ -516,8 +517,84 @@ export default function ReactFlowCanvas({ projectId }: ReactFlowCanvasProps) {
     );
   }
 
+  // Floating dock items
+  const dockItems = [
+    {
+      title: "Image",
+      icon: (
+        <IconPhoto className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+      ),
+      href: "#",
+      onClick: (e: React.MouseEvent) => {
+        e.preventDefault();
+        handleAddNode('image');
+      },
+      id: 'image',
+    },
+    {
+      title: "Prompt",
+      icon: (
+        <IconMessageCircle className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+      ),
+      href: "#",
+      onClick: (e: React.MouseEvent) => {
+        e.preventDefault();
+        handleAddNode('prompt');
+      },
+      id: 'prompt',
+    },
+    {
+      title: "Video",
+      icon: (
+        <IconVideo className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+      ),
+      href: "#",
+      onClick: (e: React.MouseEvent) => {
+        e.preventDefault();
+        handleAddNode('video');
+      },
+      id: 'video',
+    },
+    {
+      title: "Container",
+      icon: (
+        <IconBox className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+      ),
+      href: "#",
+      onClick: (e: React.MouseEvent) => {
+        e.preventDefault();
+        handleAddNode('container');
+      },
+      id: 'container',
+    },
+    {
+      title: "Ratio",
+      icon: (
+        <IconAspectRatio className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+      ),
+      href: "#",
+      onClick: (e: React.MouseEvent) => {
+        e.preventDefault();
+        handleAddNode('ratio');
+      },
+      id: 'ratio',
+    },
+    {
+      title: "Scene",
+      icon: (
+        <IconCameraRotate className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+      ),
+      href: "#",
+      onClick: (e: React.MouseEvent) => {
+        e.preventDefault();
+        handleAddNode('scene');
+      },
+      id: 'scene',
+    },
+  ];
+
   return (
-    <div className="w-full h-full framer-canvas">
+    <div className="w-full h-full framer-canvas relative">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -534,6 +611,11 @@ export default function ReactFlowCanvas({ projectId }: ReactFlowCanvasProps) {
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="#374151" />
         <Controls className="react-flow__controls" />
       </ReactFlow>
+
+      {/* Floating Dock at bottom center */}
+      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50">
+        <FloatingDock items={dockItems} />
+      </div>
     </div>
   );
 }
