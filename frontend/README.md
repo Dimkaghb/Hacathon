@@ -5,10 +5,22 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 ### Prerequisites
 
 1. Make sure the backend server is running (see backend README)
-2. Create a `.env.local` file in the frontend directory:
+2. Copy `.env.example` to `.env.local` and configure your environment:
+
+```bash
+cp .env.example .env.local
+```
+
+3. Edit `.env.local` with your backend URLs:
 
 ```env
+# For local development
 NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_WS_URL=ws://localhost:8000
+
+# For production
+# NEXT_PUBLIC_API_URL=https://your-api-domain.com
+# NEXT_PUBLIC_WS_URL=wss://your-api-domain.com
 ```
 
 ### Running the Development Server

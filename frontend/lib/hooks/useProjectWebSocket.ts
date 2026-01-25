@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { tokenStorage } from '../api';
 import { Node, Connection as BackendConnection } from '../types/node';
 
-const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://34.41.241.117:8000';
+const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000';
 
 // Message types from backend
 export type WebSocketMessageType = 
