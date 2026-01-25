@@ -456,4 +456,24 @@ export const aiApi = {
       stage?: string;
     }>(`/api/ai/nodes/${nodeId}/jobs/latest`);
   },
+
+  extendVideo: async (request: {
+    node_id: string;
+    video_url: string;
+    prompt: string;
+    veo_video_uri?: string;
+    veo_video_name?: string;
+    extension_count?: number;
+  }) => {
+    return apiFetch<{
+      job_id: string;
+      node_id: string;
+      type: string;
+      status: string;
+      progress: number;
+    }>('/api/ai/extend-video', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  },
 };

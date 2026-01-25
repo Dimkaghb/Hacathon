@@ -1,4 +1,4 @@
-"""Add container, ratio, scene node types
+"""Add container, ratio, scene, extension node types
 
 Revision ID: 002
 Revises: 001
@@ -24,6 +24,7 @@ def upgrade() -> None:
     op.execute("ALTER TYPE nodetype ADD VALUE IF NOT EXISTS 'container'")
     op.execute("ALTER TYPE nodetype ADD VALUE IF NOT EXISTS 'ratio'")
     op.execute("ALTER TYPE nodetype ADD VALUE IF NOT EXISTS 'scene'")
+    op.execute("ALTER TYPE nodetype ADD VALUE IF NOT EXISTS 'extension'")
 
 
 def downgrade() -> None:

@@ -15,6 +15,7 @@ class NodeType(str, enum.Enum):
     CONTAINER = "container"
     RATIO = "ratio"
     SCENE = "scene"
+    EXTENSION = "extension"
 
 
 class NodeStatus(str, enum.Enum):

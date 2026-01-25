@@ -25,7 +25,7 @@ import { useAuth } from '@/lib/contexts/AuthContext';
 import { nodeTypes } from './nodes';
 import { edgeTypes } from './edges';
 import { FloatingDock } from '@/components/ui/floating-dock';
-import { IconPhoto, IconMessageCircle, IconVideo, IconBox, IconAspectRatio, IconCameraRotate } from '@tabler/icons-react';
+import { IconPhoto, IconMessageCircle, IconVideo, IconBox, IconAspectRatio, IconCameraRotate, IconPlayerTrackNext } from '@tabler/icons-react';
 
 interface ReactFlowCanvasProps {
   projectId: string;
@@ -67,12 +67,18 @@ export default function ReactFlowCanvas({ projectId }: ReactFlowCanvasProps) {
   // Helper function to get connected data (no useCallback to avoid circular deps)
   // Flexible: extracts data from any connected node based on what data is available
   const getConnectedData = (nodeId: string, nodes: Node[], connections: BackendConnection[]) => {
-    const videoConnections = connections.filter(c => c.target_node_id === nodeId);
+    const nodeConnections = connections.filter(c => c.target_node_id === nodeId);
 
     let prompt = '';
     let imageUrl = '';
+    let videoData: {
+      video_url: string;
+      veo_video_uri?: string;
+      veo_video_name?: string;
+      extension_count?: number;
+    } | null = null;
 
-    for (const connection of videoConnections) {
+    for (const connection of nodeConnections) {
       const sourceNode = nodes.find(n => n.id === connection.source_node_id);
       if (!sourceNode) continue;
 
@@ -85,30 +91,49 @@ export default function ReactFlowCanvas({ projectId }: ReactFlowCanvasProps) {
       if (sourceNode.data?.image_url && !imageUrl) {
         imageUrl = sourceNode.data.image_url;
       }
+
+      // Extract video data for extension nodes (from video or extension nodes)
+      if (sourceNode.data?.video_url && sourceNode.data?.veo_video_uri && !videoData) {
+        videoData = {
+          video_url: sourceNode.data.video_url,
+          veo_video_uri: sourceNode.data.veo_video_uri,
+          veo_video_name: sourceNode.data.veo_video_name,
+          extension_count: sourceNode.data.extension_count || 0,
+        };
+      }
     }
 
-    return { prompt, imageUrl };
+    return { prompt, imageUrl, videoData };
   };
 
   // Transform backend nodes to React Flow nodes (no useCallback to avoid circular deps)
   const transformBackendNodesToRF = (nodes: Node[], connections: BackendConnection[]): RFNode[] => {
-    return nodes.map(node => ({
-      id: node.id,
-      type: node.type,
-      position: { x: node.position_x, y: node.position_y },
-      data: {
-        data: node.data,
-        status: node.status,
-        error_message: node.error_message,
-        // Callbacks
-        onUpdate: (data: Record<string, any>) => handleNodeUpdate(node.id, data),
-        onDelete: () => handleNodeDelete(node.id),
-        onGenerate: node.type === 'video' ? () => handleGenerateVideo(node.id) : undefined,
-        // Connected data for video nodes
-        connectedPrompt: node.type === 'video' ? getConnectedData(node.id, nodes, connections).prompt : undefined,
-        connectedImageUrl: node.type === 'video' ? getConnectedData(node.id, nodes, connections).imageUrl : undefined,
-      },
-    }));
+    return nodes.map(node => {
+      const connectedData = (node.type === 'video' || node.type === 'extension') 
+        ? getConnectedData(node.id, nodes, connections) 
+        : null;
+      
+      return {
+        id: node.id,
+        type: node.type,
+        position: { x: node.position_x, y: node.position_y },
+        data: {
+          data: node.data,
+          status: node.status,
+          error_message: node.error_message,
+          // Callbacks
+          onUpdate: (data: Record<string, any>) => handleNodeUpdate(node.id, data),
+          onDelete: () => handleNodeDelete(node.id),
+          onGenerate: node.type === 'video' ? () => handleGenerateVideo(node.id) : undefined,
+          onExtend: node.type === 'extension' ? () => handleExtendVideo(node.id) : undefined,
+          // Connected data for video nodes
+          connectedPrompt: connectedData?.prompt,
+          connectedImageUrl: connectedData?.imageUrl,
+          // Connected data for extension nodes
+          connectedVideo: node.type === 'extension' ? connectedData?.videoData : undefined,
+        },
+      };
+    });
   };
 
   // Transform backend connections to React Flow edges
@@ -124,7 +149,7 @@ export default function ReactFlowCanvas({ projectId }: ReactFlowCanvasProps) {
     }));
   };
 
-  // Update video node connected data - accepts optional connections to avoid stale closure
+  // Update video/extension node connected data - accepts optional connections to avoid stale closure
   const updateVideoNodeConnectedData = useCallback((
     nodeId: string, 
     nodesOverride?: Node[], 
@@ -132,13 +157,21 @@ export default function ReactFlowCanvas({ projectId }: ReactFlowCanvasProps) {
   ) => {
     const nodesToUse = nodesOverride || backendNodes;
     const connectionsToUse = connectionsOverride || backendConnections;
-    const { prompt, imageUrl } = getConnectedData(nodeId, nodesToUse, connectionsToUse);
+    const { prompt, imageUrl, videoData } = getConnectedData(nodeId, nodesToUse, connectionsToUse);
     setNodes(nds =>
-      nds.map(n =>
-        n.id === nodeId && n.type === 'video'
-          ? { ...n, data: { ...n.data, connectedPrompt: prompt, connectedImageUrl: imageUrl } }
-          : n
-      )
+      nds.map(n => {
+        if (n.id !== nodeId) return n;
+        
+        if (n.type === 'video') {
+          return { ...n, data: { ...n.data, connectedPrompt: prompt, connectedImageUrl: imageUrl } };
+        }
+        
+        if (n.type === 'extension') {
+          return { ...n, data: { ...n.data, connectedPrompt: prompt, connectedVideo: videoData } };
+        }
+        
+        return n;
+      })
     );
   }, [backendNodes, backendConnections]);
 
@@ -432,8 +465,8 @@ export default function ReactFlowCanvas({ projectId }: ReactFlowCanvasProps) {
       const updatedConnections = [...backendConnections, newConnection];
       setBackendConnections(updatedConnections);
 
-      // Update video nodes if affected - pass updated connections to avoid stale closure
-      if (targetNode.type === 'video') {
+      // Update video/extension nodes if affected - pass updated connections to avoid stale closure
+      if (targetNode.type === 'video' || targetNode.type === 'extension') {
         updateVideoNodeConnectedData(connection.target, backendNodes, updatedConnections);
       }
     } catch (error) {
@@ -454,9 +487,9 @@ export default function ReactFlowCanvas({ projectId }: ReactFlowCanvasProps) {
         currentConnections = currentConnections.filter(c => c.id !== edge.id);
         setBackendConnections(currentConnections);
 
-        // Update video nodes if affected - pass updated connections to avoid stale closure
+        // Update video/extension nodes if affected - pass updated connections to avoid stale closure
         const targetNode = backendNodes.find(n => n.id === edge.target);
-        if (targetNode && targetNode.type === 'video') {
+        if (targetNode && (targetNode.type === 'video' || targetNode.type === 'extension')) {
           updateVideoNodeConnectedData(edge.target, backendNodes, currentConnections);
         }
       } catch (error) {
@@ -466,7 +499,7 @@ export default function ReactFlowCanvas({ projectId }: ReactFlowCanvasProps) {
   }, [projectId, backendNodes, backendConnections, updateVideoNodeConnectedData]);
 
   // Handle node creation
-  const handleAddNode = async (type: 'image' | 'prompt' | 'video' | 'container' | 'ratio' | 'scene') => {
+  const handleAddNode = async (type: 'image' | 'prompt' | 'video' | 'container' | 'ratio' | 'scene' | 'extension') => {
     try {
       const newNode = await nodesApi.create(projectId, {
         type,
@@ -570,6 +603,70 @@ export default function ReactFlowCanvas({ projectId }: ReactFlowCanvasProps) {
     }
   }, [updateNodeData, startJobPolling]);
 
+  // Handle video extension - uses refs to always access latest state (fixes stale closure)
+  const handleExtendVideo = useCallback(async (nodeId: string) => {
+    // Use refs to get latest state values (avoids stale closure issue)
+    const currentNodes = backendNodesRef.current;
+    const currentConnections = backendConnectionsRef.current;
+    
+    const extensionNode = currentNodes.find(n => n.id === nodeId);
+    if (!extensionNode || extensionNode.type !== 'extension') {
+      console.error('Extension node not found:', nodeId);
+      return;
+    }
+
+    const { prompt, videoData } = getConnectedData(nodeId, currentNodes, currentConnections);
+    console.log('Extend video:', { nodeId, prompt, videoData, connections: currentConnections.length });
+    
+    if (!videoData?.veo_video_uri) {
+      alert('Please connect a generated video first (must have Veo references)');
+      return;
+    }
+    
+    if (!prompt) {
+      alert('Please connect a prompt node');
+      return;
+    }
+
+    // Check extension limit
+    const extensionCount = (videoData.extension_count || 0) + 1;
+    if (extensionCount > 20) {
+      alert('Maximum 20 extensions reached for this video chain');
+      return;
+    }
+
+    try {
+      // Update node status
+      updateNodeData(nodeId, { progress_message: 'Starting extension...' }, 'processing');
+
+      const job = await aiApi.extendVideo({
+        node_id: nodeId,
+        video_url: videoData.video_url,
+        prompt,
+        veo_video_uri: videoData.veo_video_uri,
+        veo_video_name: videoData.veo_video_name,
+        extension_count: extensionCount,
+      });
+
+      console.log('Video extension job started:', job);
+
+      // Start polling for job status
+      startJobPolling(job.job_id, nodeId);
+    } catch (error: any) {
+      const errorMessage = error?.message || error?.toString() || 'Unknown error';
+      console.error('Failed to extend video:', errorMessage, error);
+      updateNodeData(
+        nodeId,
+        {
+          progress_message: `Failed to start extension: ${errorMessage}`,
+          stage: 'error',
+        },
+        'failed',
+        errorMessage
+      );
+    }
+  }, [updateNodeData, startJobPolling]);
+
   if (loading) {
     return (
       <div className="w-full h-full flex items-center justify-center text-white bg-[#1a1a1a]">
@@ -615,6 +712,18 @@ export default function ReactFlowCanvas({ projectId }: ReactFlowCanvasProps) {
         handleAddNode('video');
       },
       id: 'video',
+    },
+    {
+      title: "Extension",
+      icon: (
+        <IconPlayerTrackNext className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+      ),
+      href: "#",
+      onClick: (e: React.MouseEvent) => {
+        e.preventDefault();
+        handleAddNode('extension');
+      },
+      id: 'extension',
     },
     {
       title: "Container",

@@ -4,6 +4,7 @@ import VideoNodeRF from './VideoNodeRF';
 import ContainerNodeRF from './ContainerNodeRF';
 import RatioNodeRF from './RatioNodeRF';
 import SceneNodeRF from './SceneNodeRF';
+import ExtensionNodeRF from './ExtensionNodeRF';
 
 export const nodeTypes = {
   image: ImageNodeRF,
@@ -12,4 +13,5 @@ export const nodeTypes = {
   container: ContainerNodeRF,
   ratio: RatioNodeRF,
   scene: SceneNodeRF,
+  extension: ExtensionNodeRF,
 };
