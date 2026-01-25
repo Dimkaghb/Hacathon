@@ -39,8 +39,8 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
   const { isAuthenticated } = useAuth();
 
   // React Flow state (UI)
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<RFNode>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
   // Backend state (source of truth)
   const [backendNodes, setBackendNodes] = useState<Node[]>([]);
