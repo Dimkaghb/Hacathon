@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import ReactFlowCanvas from "@/components/canvas/ReactFlowCanvas";
 import BackendConnection from "@/components/BackendConnection";
+import FigmaSidebar from "@/components/FigmaSidebar";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { projectsApi } from "@/lib/api";
 
@@ -109,8 +110,8 @@ export default function MainPage() {
   // Show loading
   if (authLoading || loading) {
     return (
-      <div className="w-full h-screen overflow-hidden bg-[#1a1a1a] flex items-center justify-center">
-        <div className="text-white">Loading...</div>
+      <div className="w-full h-screen overflow-hidden bg-[#0a0a0a] flex items-center justify-center">
+        <div className="text-neutral-400">Loading...</div>
       </div>
     );
   }
@@ -123,9 +124,9 @@ export default function MainPage() {
   // Show project dialog if no project (only for authenticated users)
   if (showProjectDialog && !isSharedAccess) {
     return (
-      <div className="w-full h-screen overflow-hidden bg-[#1a1a1a] flex items-center justify-center">
-        <div className="bg-[#2a2a2a] p-8 rounded-lg border border-gray-700 max-w-md w-full">
-          <h2 className="text-2xl font-bold text-white mb-4">Create New Project</h2>
+      <div className="w-full h-screen overflow-hidden bg-[#0a0a0a] flex items-center justify-center">
+        <div className="bg-[#0f0f0f] p-8 rounded-lg border border-neutral-800/50 max-w-md w-full">
+          <h2 className="text-xl font-semibold text-neutral-200 mb-4">Create New Project</h2>
           <input
             type="text"
             placeholder="Project name"
@@ -136,7 +137,7 @@ export default function MainPage() {
                 handleCreateProject(projectName.trim());
               }
             }}
-            className="w-full px-4 py-2 bg-[#1a1a1a] text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none mb-4"
+            className="w-full px-4 py-2 bg-[#0a0a0a] text-neutral-200 rounded-lg border border-neutral-800 focus:border-neutral-600 focus:outline-none mb-4 placeholder:text-neutral-600"
             autoFocus
           />
           <button
@@ -146,7 +147,7 @@ export default function MainPage() {
               }
             }}
             disabled={!projectName.trim()}
-            className="w-full py-2 px-4 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-2 px-4 bg-neutral-800 text-neutral-200 rounded-lg hover:bg-neutral-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Create Project
           </button>
@@ -157,8 +158,8 @@ export default function MainPage() {
 
   if (!projectId) {
     return (
-      <div className="w-full h-screen overflow-hidden bg-[#1a1a1a] flex items-center justify-center">
-        <div className="text-white">Loading project...</div>
+      <div className="w-full h-screen overflow-hidden bg-[#0a0a0a] flex items-center justify-center">
+        <div className="text-neutral-400">Loading project...</div>
       </div>
     );
   }
@@ -213,6 +214,6 @@ export default function MainPage() {
           </>
         )}
       </div>
-    </div>
+    </FigmaSidebar>
   );
 }

@@ -16,7 +16,7 @@
   display: none;
 }
 
-/* Node base styles */
+/* Node base styles - Minimalistic unified block */
 .rf-node {
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border-default);
@@ -26,6 +26,7 @@
   max-width: 320px;
   transition: all 0.15s ease;
   cursor: grab;
+  position: relative;
 }
 
 .rf-node:active {
@@ -37,7 +38,12 @@
   box-shadow: 0 0 0 2px rgba(107, 114, 128, 0.2), 0 4px 6px -1px rgba(0, 0, 0, 0.3);
 }
 
-/* Node header */
+.rf-node.selected {
+  border-color: #4a4a4a;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+/* Node header - compact, no background */
 .rf-node-header {
   display: flex;
   align-items: center;
@@ -64,13 +70,19 @@
   line-height: 1;
   cursor: pointer;
   padding: 0;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 4px;
   transition: all 0.15s ease;
+  opacity: 0;
+}
+
+.rf-node:hover .rf-node-delete,
+.rf-node.selected .rf-node-delete {
+  opacity: 1;
 }
 
 .rf-node-delete:hover {
@@ -80,13 +92,13 @@
 
 /* Node content */
 .rf-node-content {
-  padding: 16px;
+  padding: 6px 14px 14px 14px;
 }
 
-/* Status indicator */
+/* Status indicator - subtle dot */
 .rf-node-status-indicator {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: var(--color-text-muted);
   flex-shrink: 0;
@@ -108,9 +120,11 @@
 @keyframes pulse {
   0%, 100% {
     opacity: 1;
+    transform: scale(1);
   }
   50% {
     opacity: 0.5;
+    transform: scale(0.9);
   }
 }
 
@@ -188,7 +202,7 @@
   background: var(--color-bg-hover);
   border: 1px solid var(--color-border-default);
   border-radius: 8px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+  box-shadow: none;
 }
 
 .react-flow__controls-button {
@@ -211,7 +225,7 @@
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border-default);
   border-radius: 8px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+  box-shadow: none;
 }
 
 .react-flow__minimap-mask {

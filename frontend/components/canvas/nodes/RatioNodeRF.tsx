@@ -9,11 +9,11 @@ export default function RatioNodeRF({ data, selected }: NodeProps) {
   const [aspectRatio, setAspectRatio] = useState(node.aspect_ratio || '16:9');
 
   const ratioOptions = [
-    { value: '16:9', label: '16:9 (Landscape)' },
-    { value: '9:16', label: '9:16 (Portrait)' },
-    { value: '1:1', label: '1:1 (Square)' },
-    { value: '4:3', label: '4:3 (Classic)' },
-    { value: '21:9', label: '21:9 (Ultrawide)' },
+    { value: '16:9', label: '16:9' },
+    { value: '9:16', label: '9:16' },
+    { value: '1:1', label: '1:1' },
+    { value: '4:3', label: '4:3' },
+    { value: '21:9', label: '21:9' },
   ];
 
   const handleRatioChange = (value: string) => {
@@ -42,26 +42,31 @@ export default function RatioNodeRF({ data, selected }: NodeProps) {
       {/* Node Header */}
       <div className="rf-node-header">
         <div className="rf-node-status-indicator" data-status={data.status || 'idle'} />
-        <h3 className="rf-node-title">Aspect Ratio</h3>
-        {selected && (
-          <button onClick={() => data.onDelete?.()} className="rf-node-delete">×</button>
-        )}
+        <h3 className="rf-node-title">Ratio</h3>
+        <span className="rf-badge">{aspectRatio}</span>
+        <button onClick={() => data.onDelete?.()} className="rf-node-delete">×</button>
       </div>
 
       {/* Node Content */}
       <div className="rf-node-content">
-        <select
-          value={aspectRatio}
-          onChange={(e) => handleRatioChange(e.target.value)}
-          onClick={(e) => e.stopPropagation()}
-          className="w-full px-3 py-2 bg-[#0a0a0a]/50 border border-[#374151] rounded-lg text-sm text-[#d1d9e6] focus:outline-none focus:border-[#6b7280] focus:ring-1 focus:ring-[#6b7280]/20 transition-all duration-200"
-        >
+        <div className="grid grid-cols-3 gap-1.5">
           {ratioOptions.map(option => (
-            <option key={option.value} value={option.value}>
+            <button
+              key={option.value}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleRatioChange(option.value);
+              }}
+              className={`px-2 py-1.5 text-[10px] rounded transition-colors ${
+                aspectRatio === option.value
+                  ? 'bg-white text-[#0f0f0f]'
+                  : 'bg-[#2a2a2a] text-[#808080] hover:bg-[#3a3a3a]'
+              }`}
+            >
               {option.label}
-            </option>
+            </button>
           ))}
-        </select>
+        </div>
       </div>
     </div>
   );
