@@ -1,6 +1,6 @@
 // API client for backend communication
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://34.41.241.117:8000';
 
 // Token management
 export const tokenStorage = {
