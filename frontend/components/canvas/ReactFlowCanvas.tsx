@@ -42,6 +42,19 @@ export default function ReactFlowCanvas({ projectId }: ReactFlowCanvasProps) {
   const [backendNodes, setBackendNodes] = useState<Node[]>([]);
   const [backendConnections, setBackendConnections] = useState<BackendConnection[]>([]);
 
+  // Refs to always access latest state values (fixes stale closure in callbacks)
+  const backendNodesRef = useRef<Node[]>([]);
+  const backendConnectionsRef = useRef<BackendConnection[]>([]);
+
+  // Keep refs in sync with state
+  useEffect(() => {
+    backendNodesRef.current = backendNodes;
+  }, [backendNodes]);
+
+  useEffect(() => {
+    backendConnectionsRef.current = backendConnections;
+  }, [backendConnections]);
+
   // Job polling - use ref to avoid recreating callbacks
   const jobPollingRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const [, forceUpdate] = useState({});
@@ -110,9 +123,15 @@ export default function ReactFlowCanvas({ projectId }: ReactFlowCanvasProps) {
     }));
   };
 
-  // Update video node connected data
-  const updateVideoNodeConnectedData = useCallback((nodeId: string) => {
-    const { prompt, imageUrl } = getConnectedData(nodeId, backendNodes, backendConnections);
+  // Update video node connected data - accepts optional connections to avoid stale closure
+  const updateVideoNodeConnectedData = useCallback((
+    nodeId: string, 
+    nodesOverride?: Node[], 
+    connectionsOverride?: BackendConnection[]
+  ) => {
+    const nodesToUse = nodesOverride || backendNodes;
+    const connectionsToUse = connectionsOverride || backendConnections;
+    const { prompt, imageUrl } = getConnectedData(nodeId, nodesToUse, connectionsToUse);
     setNodes(nds =>
       nds.map(n =>
         n.id === nodeId && n.type === 'video'
@@ -359,11 +378,41 @@ export default function ReactFlowCanvas({ projectId }: ReactFlowCanvasProps) {
     // Validate: no self-connections
     if (connection.source === connection.target) return;
 
-    // Validate: no duplicates
+    // Get source and target nodes for validation
+    const sourceNode = backendNodes.find(n => n.id === connection.source);
+    const targetNode = backendNodes.find(n => n.id === connection.target);
+    
+    if (!sourceNode || !targetNode) return;
+
+    // Validate: connection type matches handle (prompt to prompt-input, image to image-input)
+    if (targetNode.type === 'video') {
+      if (connection.targetHandle === 'prompt-input' && sourceNode.type !== 'prompt') {
+        console.warn('Only prompt nodes can connect to prompt-input');
+        return;
+      }
+      if (connection.targetHandle === 'image-input' && sourceNode.type !== 'image') {
+        console.warn('Only image nodes can connect to image-input');
+        return;
+      }
+    }
+
+    // Validate: no duplicate connections to the same handle
     const exists = edges.some(
-      e => e.source === connection.source && e.target === connection.target
+      e => e.source === connection.source && 
+           e.target === connection.target &&
+           e.sourceHandle === connection.sourceHandle &&
+           e.targetHandle === connection.targetHandle
     );
     if (exists) return;
+
+    // Validate: no multiple connections to the same input handle (each video input accepts one connection)
+    const handleAlreadyConnected = edges.some(
+      e => e.target === connection.target && e.targetHandle === connection.targetHandle
+    );
+    if (handleAlreadyConnected) {
+      console.warn('This input handle already has a connection');
+      return;
+    }
 
     try {
       // Create in backend
@@ -386,34 +435,43 @@ export default function ReactFlowCanvas({ projectId }: ReactFlowCanvasProps) {
       };
 
       setEdges(eds => addEdge(newEdge, eds));
-      setBackendConnections(prev => [...prev, newConnection]);
+      
+      // Create updated connections list for immediate use (avoid stale closure)
+      const updatedConnections = [...backendConnections, newConnection];
+      setBackendConnections(updatedConnections);
 
-      // Update video nodes if affected
-      if (backendNodes.find(n => n.id === connection.target && n.type === 'video')) {
-        updateVideoNodeConnectedData(connection.target);
+      // Update video nodes if affected - pass updated connections to avoid stale closure
+      if (targetNode.type === 'video') {
+        updateVideoNodeConnectedData(connection.target, backendNodes, updatedConnections);
       }
     } catch (error) {
       console.error('Failed to create connection:', error);
     }
-  }, [projectId, edges, backendNodes, updateVideoNodeConnectedData]);
+  }, [projectId, edges, backendNodes, backendConnections, updateVideoNodeConnectedData]);
 
   // Handle edge delete
   const handleEdgeDelete = useCallback(async (edgesToDelete: Edge[]) => {
+    // Track updated connections to avoid stale closure
+    let currentConnections = [...backendConnections];
+    
     for (const edge of edgesToDelete) {
       try {
         await connectionsApi.delete(projectId, edge.id);
-        setBackendConnections(prev => prev.filter(c => c.id !== edge.id));
+        
+        // Update connections list
+        currentConnections = currentConnections.filter(c => c.id !== edge.id);
+        setBackendConnections(currentConnections);
 
-        // Update video nodes if affected
+        // Update video nodes if affected - pass updated connections to avoid stale closure
         const targetNode = backendNodes.find(n => n.id === edge.target);
         if (targetNode && targetNode.type === 'video') {
-          updateVideoNodeConnectedData(edge.target);
+          updateVideoNodeConnectedData(edge.target, backendNodes, currentConnections);
         }
       } catch (error) {
         console.error('Failed to delete connection:', error);
       }
     }
-  }, [projectId, backendNodes, updateVideoNodeConnectedData]);
+  }, [projectId, backendNodes, backendConnections, updateVideoNodeConnectedData]);
 
   // Handle node creation
   const handleAddNode = async (type: 'image' | 'prompt' | 'video' | 'container' | 'ratio' | 'scene') => {
@@ -468,12 +526,21 @@ export default function ReactFlowCanvas({ projectId }: ReactFlowCanvasProps) {
     }
   };
 
-  // Handle video generation
-  const handleGenerateVideo = async (nodeId: string) => {
-    const videoNode = backendNodes.find(n => n.id === nodeId);
-    if (!videoNode || videoNode.type !== 'video') return;
+  // Handle video generation - uses refs to always access latest state (fixes stale closure)
+  const handleGenerateVideo = useCallback(async (nodeId: string) => {
+    // Use refs to get latest state values (avoids stale closure issue)
+    const currentNodes = backendNodesRef.current;
+    const currentConnections = backendConnectionsRef.current;
+    
+    const videoNode = currentNodes.find(n => n.id === nodeId);
+    if (!videoNode || videoNode.type !== 'video') {
+      console.error('Video node not found:', nodeId, 'Available nodes:', currentNodes.map(n => n.id));
+      return;
+    }
 
-    const { prompt, imageUrl } = getConnectedData(nodeId);
+    const { prompt, imageUrl } = getConnectedData(nodeId, currentNodes, currentConnections);
+    console.log('Generate video:', { nodeId, prompt, imageUrl, connections: currentConnections.length });
+    
     if (!prompt) {
       alert('Please connect a prompt node first');
       return;
@@ -481,7 +548,7 @@ export default function ReactFlowCanvas({ projectId }: ReactFlowCanvasProps) {
 
     try {
       // Update node status
-      updateNodeData(nodeId, {}, 'processing');
+      updateNodeData(nodeId, { progress_message: 'Starting generation...' }, 'processing');
 
       const job = await aiApi.generateVideo({
         node_id: nodeId,
@@ -492,11 +559,13 @@ export default function ReactFlowCanvas({ projectId }: ReactFlowCanvasProps) {
         aspect_ratio: '16:9',
       });
 
+      console.log('Video generation job started:', job);
+
       // Start polling for job status
       startJobPolling(job.job_id, nodeId);
     } catch (error: any) {
       const errorMessage = error?.message || error?.toString() || 'Unknown error';
-      console.error('Failed to generate video:', errorMessage);
+      console.error('Failed to generate video:', errorMessage, error);
       updateNodeData(
         nodeId,
         {
@@ -507,7 +576,7 @@ export default function ReactFlowCanvas({ projectId }: ReactFlowCanvasProps) {
         errorMessage
       );
     }
-  };
+  }, [updateNodeData, startJobPolling]);
 
   if (loading) {
     return (

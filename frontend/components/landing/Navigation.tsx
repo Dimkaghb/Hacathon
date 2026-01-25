@@ -7,8 +7,8 @@ export default function Navigation() {
   return (
     <motion.nav 
       className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-6 md:px-12 bg-gradient-to-b from-black/50 to-transparent backdrop-blur-sm"
-      initial={{ y: -100, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
     >
       <motion.div
@@ -23,8 +23,8 @@ export default function Navigation() {
       
       <motion.div 
         className="hidden gap-8 text-sm font-medium opacity-90 md:flex items-center"
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
         transition={{ duration: 0.5, delay: 0.3 }}
       >
         <Link href="#features" className="hover:opacity-70 transition-opacity">Features</Link>

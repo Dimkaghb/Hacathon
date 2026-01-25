@@ -104,6 +104,34 @@ export default function VideoNodeRF({ data, selected }: NodeProps) {
             </div>
           </div>
 
+          {/* Progress/Status Display */}
+          {status === 'processing' && (
+            <div className="space-y-2 py-2 px-3 bg-[#0a0a0a]/30 rounded-lg border border-[#374151]">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 border-2 border-[#6b7280] border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-xs text-[#9ca3af]">Generating...</span>
+              </div>
+              {node.progress_message && (
+                <p className="text-xs text-[#6b7280] truncate">{node.progress_message}</p>
+              )}
+              {typeof node.progress === 'number' && node.progress > 0 && (
+                <div className="w-full bg-[#374151] rounded-full h-1">
+                  <div 
+                    className="bg-[#d1d9e6] h-1 rounded-full transition-all duration-300"
+                    style={{ width: `${node.progress}%` }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Error Display */}
+          {status === 'failed' && errorMessage && (
+            <div className="py-2 px-3 bg-red-500/10 rounded-lg border border-red-500/30">
+              <p className="text-xs text-red-400 truncate">{errorMessage}</p>
+            </div>
+          )}
+
           {/* Generate Button */}
           <button
             onClick={(e) => {
@@ -119,11 +147,9 @@ export default function VideoNodeRF({ data, selected }: NodeProps) {
             title={!canGenerate ? 'Connect a prompt node and enter a prompt to generate video' : 'Generate video'}
           >
             {status === 'processing' ? (
-              <span className="flex items-center justify-center gap-2">
-                <div className="w-4 h-4 border-2 border-[#6b7280] border-t-transparent rounded-full animate-spin"></div>
-              </span>
-            ) : !canGenerate ? (
-              'Generate Video'
+              'Generating...'
+            ) : status === 'failed' ? (
+              'Retry Generation'
             ) : (
               'Generate Video'
             )}

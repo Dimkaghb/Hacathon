@@ -24,6 +24,13 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
+
+# Type alias for operation starter coroutine
+from typing import Callable, Awaitable
+
+OperationStarter = Callable[[], Awaitable[str]]
+
+
 # Create sync engine for Celery tasks
 sync_engine = create_engine(
     settings.DATABASE_URL.replace("+asyncpg", "").replace("postgresql+asyncpg", "postgresql+psycopg2"),
@@ -107,6 +114,129 @@ def broadcast_progress_sync(
         loop.close()
 
 
+def _execute_video_operation(
+    celery_task,
+    job_id: str,
+    node_id: str,
+    project_id: str,
+    start_operation: OperationStarter,
+    operation_label: str,
+    build_result_data: Callable[[Dict], Dict[str, Any]],
+) -> Dict[str, Any]:
+    """
+    Execute a video operation lifecycle: start, poll, download, and update status.
+
+    This consolidates the common orchestration logic for both video generation
+    and video extension tasks.
+
+    Args:
+        celery_task: The Celery task instance (self from the task)
+        job_id: The job ID to track
+        node_id: The node ID to update
+        project_id: The project ID for WebSocket broadcasts
+        start_operation: Async callable that starts the operation and returns operation_id
+        operation_label: Label for progress messages (e.g., "Generating", "Extending")
+        build_result_data: Callable that builds final result data from video_result
+
+    Returns:
+        The final result data dict
+    """
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    try:
+        # Start the operation
+        broadcast_progress_sync(project_id, node_id, 5, "processing", f"Starting {operation_label.lower()}...")
+
+        try:
+            operation_id = loop.run_until_complete(start_operation())
+        except Exception as e:
+            error_msg = str(e)
+            if "safety" in error_msg.lower() or "blocked" in error_msg.lower():
+                update_job_status_sync(job_id, JobStatus.FAILED, error="Content blocked by safety filters")
+                update_node_status_sync(node_id, NodeStatus.FAILED, error_message="Content blocked")
+                broadcast_progress_sync(project_id, node_id, 0, "failed", "Content blocked")
+                raise Exception("Content blocked by safety filters - will not retry")
+            raise
+
+        update_job_status_sync(job_id, JobStatus.PROCESSING, progress=10, operation_id=operation_id)
+        broadcast_progress_sync(project_id, node_id, 10, "processing", f"{operation_label}...")
+
+        # Poll for completion
+        poll_count = 0
+        max_polls = settings.VEO_MAX_POLL_TIME // settings.VEO_POLL_INTERVAL
+
+        while poll_count < max_polls:
+            result = loop.run_until_complete(veo_service.poll_operation(operation_id))
+
+            if result["done"]:
+                if result["error"]:
+                    error_msg = result["error"]
+                    update_job_status_sync(job_id, JobStatus.FAILED, error=error_msg)
+                    update_node_status_sync(node_id, NodeStatus.FAILED, error_message=error_msg)
+                    broadcast_progress_sync(project_id, node_id, 0, "failed", error_msg[:100])
+
+                    if "quota" in error_msg.lower() or "rate" in error_msg.lower():
+                        raise Exception(f"Rate limited: {error_msg}")  # Will retry
+                    raise Exception(error_msg)
+
+                # Download video
+                broadcast_progress_sync(project_id, node_id, 85, "processing", "Downloading...")
+
+                video_id = str(uuid4())
+                destination_path = f"videos/{project_id}/{video_id}"
+
+                video_result = loop.run_until_complete(
+                    veo_service.download_generated_video(
+                        operation_result=result["result"],
+                        destination_path=destination_path,
+                        select_best=True,
+                    )
+                )
+
+                # Build final result using provided builder
+                result_data = build_result_data(video_result)
+
+                update_job_status_sync(job_id, JobStatus.COMPLETED, progress=100, result=result_data)
+                update_node_status_sync(node_id, NodeStatus.COMPLETED, data=result_data)
+                broadcast_progress_sync(project_id, node_id, 100, "completed", "Complete")
+
+                logger.info(f"Video operation complete for job {job_id}")
+                return result_data
+
+            # Update progress
+            poll_count += 1
+            progress = min(10 + int(poll_count * 70 / max_polls), 80)
+
+            # Update Celery task state for monitoring
+            celery_task.update_state(
+                state="PROGRESS",
+                meta={"progress": progress, "status": operation_label.lower()}
+            )
+
+            update_job_status_sync(job_id, JobStatus.PROCESSING, progress=progress)
+            broadcast_progress_sync(project_id, node_id, progress, "processing", f"{operation_label}...")
+
+            loop.run_until_complete(asyncio.sleep(settings.VEO_POLL_INTERVAL))
+
+        # Timeout
+        raise Exception(f"Video operation timed out after {settings.VEO_MAX_POLL_TIME}s")
+
+    except Exception as e:
+        logger.error(f"Video operation failed: {e}")
+
+        # Update status on final failure
+        if celery_task.request.retries >= celery_task.max_retries:
+            update_job_status_sync(job_id, JobStatus.FAILED, error=str(e))
+            update_node_status_sync(node_id, NodeStatus.FAILED, error_message=str(e))
+            broadcast_progress_sync(project_id, node_id, 0, "failed", str(e)[:100])
+
+        raise
+
+    finally:
+        loop.close()
+
+
 @celery_app.task(
     bind=True,
     name="app.tasks.video_tasks.generate_video",
@@ -149,143 +279,66 @@ def generate_video(
     update_node_status_sync(node_id, NodeStatus.PROCESSING)
     broadcast_progress_sync(project_id, node_id, 0, "processing", "Starting...")
 
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
-    try:
-        # Get character description if provided
-        character_description = None
-        if character_id:
-            broadcast_progress_sync(project_id, node_id, 2, "processing", "Loading character...")
-            try:
-                character_description = loop.run_until_complete(
-                    face_service.get_character_description(character_id)
-                )
-            except Exception as e:
-                logger.warning(f"Failed to load character: {e}")
-
-        # Start video generation
-        broadcast_progress_sync(project_id, node_id, 5, "processing", "Starting generation...")
-
-        generation_type = "image-to-video" if image_url else "text-to-video"
-
+    # Load character description if provided (before starting the operation)
+    character_description = None
+    if character_id:
+        broadcast_progress_sync(project_id, node_id, 2, "processing", "Loading character...")
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         try:
-            operation_id = loop.run_until_complete(
-                veo_service.generate_video(
-                    prompt=prompt,
-                    image_url=image_url,
-                    resolution=resolution,
-                    aspect_ratio=aspect_ratio,
-                    duration=duration,
-                    negative_prompt=negative_prompt,
-                    seed=seed,
-                    num_videos=num_videos,
-                    use_fast_model=use_fast_model,
-                    enhance_prompt=True,
-                    character_description=character_description,
-                )
+            character_description = loop.run_until_complete(
+                face_service.get_character_description(character_id)
             )
         except Exception as e:
-            error_msg = str(e)
-            if "safety" in error_msg.lower() or "blocked" in error_msg.lower():
-                # Don't retry content safety errors
-                update_job_status_sync(job_id, JobStatus.FAILED, error="Content blocked by safety filters")
-                update_node_status_sync(node_id, NodeStatus.FAILED, error_message="Content blocked")
-                broadcast_progress_sync(project_id, node_id, 0, "failed", "Content blocked")
-                raise Exception("Content blocked by safety filters - will not retry")
-            raise
+            logger.warning(f"Failed to load character: {e}")
+        finally:
+            loop.close()
 
-        update_job_status_sync(job_id, JobStatus.PROCESSING, progress=10, operation_id=operation_id)
-        broadcast_progress_sync(project_id, node_id, 10, "processing", f"Generating ({generation_type})...")
+    generation_type = "image-to-video" if image_url else "text-to-video"
 
-        # Poll for completion
-        poll_count = 0
-        max_polls = settings.VEO_MAX_POLL_TIME // settings.VEO_POLL_INTERVAL
+    # Define the operation starter
+    async def start_operation() -> str:
+        return await veo_service.generate_video(
+            prompt=prompt,
+            image_url=image_url,
+            resolution=resolution,
+            aspect_ratio=aspect_ratio,
+            duration=duration,
+            negative_prompt=negative_prompt,
+            seed=seed,
+            num_videos=num_videos,
+            use_fast_model=use_fast_model,
+            enhance_prompt=True,
+            character_description=character_description,
+        )
 
-        while poll_count < max_polls:
-            result = loop.run_until_complete(veo_service.poll_operation(operation_id))
+    # Define result builder
+    def build_result(video_result: Dict) -> Dict[str, Any]:
+        all_videos = video_result.get("all_videos", [])
+        veo_video_uri = all_videos[0].get("veo_video_uri") if all_videos else None
+        veo_video_name = all_videos[0].get("veo_video_name") if all_videos else None
 
-            if result["done"]:
-                if result["error"]:
-                    error_msg = result["error"]
-                    update_job_status_sync(job_id, JobStatus.FAILED, error=error_msg)
-                    update_node_status_sync(node_id, NodeStatus.FAILED, error_message=error_msg)
-                    broadcast_progress_sync(project_id, node_id, 0, "failed", error_msg[:100])
+        return {
+            "video_url": video_result["video_url"],
+            "video_id": str(uuid4()),
+            "all_videos": all_videos,
+            "duration": duration,
+            "resolution": resolution,
+            "aspect_ratio": aspect_ratio,
+            "generation_type": generation_type,
+            "veo_video_uri": veo_video_uri,
+            "veo_video_name": veo_video_name,
+        }
 
-                    if "quota" in error_msg.lower() or "rate" in error_msg.lower():
-                        raise Exception(f"Rate limited: {error_msg}")  # Will retry
-                    raise Exception(error_msg)
-
-                # Download video
-                broadcast_progress_sync(project_id, node_id, 85, "processing", "Downloading...")
-
-                video_id = str(uuid4())
-                destination_path = f"videos/{project_id}/{video_id}"
-
-                video_result = loop.run_until_complete(
-                    veo_service.download_generated_video(
-                        operation_result=result["result"],
-                        destination_path=destination_path,
-                        select_best=True,
-                    )
-                )
-
-                # Success! Include Veo references for extension capability
-                all_videos = video_result.get("all_videos", [])
-                # Get Veo video reference from the first/selected video
-                veo_video_uri = all_videos[0].get("veo_video_uri") if all_videos else None
-                veo_video_name = all_videos[0].get("veo_video_name") if all_videos else None
-
-                result_data = {
-                    "video_url": video_result["video_url"],
-                    "video_id": video_id,
-                    "all_videos": all_videos,
-                    "duration": duration,
-                    "resolution": resolution,
-                    "aspect_ratio": aspect_ratio,
-                    "generation_type": generation_type,
-                    "veo_video_uri": veo_video_uri,  # For video extension
-                    "veo_video_name": veo_video_name,  # For video extension
-                }
-
-                update_job_status_sync(job_id, JobStatus.COMPLETED, progress=100, result=result_data)
-                update_node_status_sync(node_id, NodeStatus.COMPLETED, data=result_data)
-                broadcast_progress_sync(project_id, node_id, 100, "completed", "Complete")
-
-                logger.info(f"Video generation complete for job {job_id}")
-                return result_data
-
-            # Update progress
-            poll_count += 1
-            progress = min(10 + int(poll_count * 70 / max_polls), 80)
-
-            # Update Celery task state for monitoring
-            self.update_state(
-                state="PROGRESS",
-                meta={"progress": progress, "status": "generating"}
-            )
-
-            update_job_status_sync(job_id, JobStatus.PROCESSING, progress=progress)
-            broadcast_progress_sync(project_id, node_id, progress, "processing", "Generating...")
-
-            loop.run_until_complete(asyncio.sleep(settings.VEO_POLL_INTERVAL))
-
-        # Timeout
-        raise Exception(f"Video generation timed out after {settings.VEO_MAX_POLL_TIME}s")
-
-    except Exception as e:
-        logger.error(f"Video generation failed: {e}")
-
-        # Update status on final failure
-        if self.request.retries >= self.max_retries:
-            update_job_status_sync(job_id, JobStatus.FAILED, error=str(e))
-            update_node_status_sync(node_id, NodeStatus.FAILED, error_message=str(e))
-            broadcast_progress_sync(project_id, node_id, 0, "failed", str(e)[:100])
-
-        raise
-
-    finally:
-        loop.close()
+    return _execute_video_operation(
+        celery_task=self,
+        job_id=job_id,
+        node_id=node_id,
+        project_id=project_id,
+        start_operation=start_operation,
+        operation_label="Generating",
+        build_result_data=build_result,
+    )
 
 
 @celery_app.task(
@@ -323,93 +376,45 @@ def extend_video(
     if extension_count > 20:
         raise Exception("Maximum extension limit (20) reached")
 
+    # Update status to processing
     update_job_status_sync(job_id, JobStatus.PROCESSING, progress=0)
     update_node_status_sync(node_id, NodeStatus.PROCESSING)
-    broadcast_progress_sync(project_id, node_id, 5, "processing", "Starting extension...")
+    broadcast_progress_sync(project_id, node_id, 0, "processing", "Starting...")
 
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    # Define the operation starter
+    async def start_operation() -> str:
+        return await veo_service.extend_video(
+            video_url=video_url,
+            prompt=prompt,
+            veo_video_uri=veo_video_uri,
+            veo_video_name=veo_video_name,
+            seed=seed,
+        )
 
-    try:
-        try:
-            operation_id = loop.run_until_complete(
-                veo_service.extend_video(
-                    video_url=video_url,
-                    prompt=prompt,
-                    veo_video_uri=veo_video_uri,
-                    veo_video_name=veo_video_name,
-                    seed=seed,
-                )
-            )
-        except Exception as e:
-            error_msg = str(e)
-            if "safety" in error_msg.lower():
-                update_job_status_sync(job_id, JobStatus.FAILED, error="Content blocked")
-                update_node_status_sync(node_id, NodeStatus.FAILED, error_message="Content blocked")
-                raise Exception("Content blocked - will not retry")
-            raise
+    # Define result builder
+    def build_result(video_result: Dict) -> Dict[str, Any]:
+        # Get Veo references for chained extensions
+        all_videos = video_result.get("all_videos", [])
+        new_veo_video_uri = all_videos[0].get("veo_video_uri") if all_videos else None
+        new_veo_video_name = all_videos[0].get("veo_video_name") if all_videos else None
 
-        update_job_status_sync(job_id, JobStatus.PROCESSING, progress=10, operation_id=operation_id)
-        broadcast_progress_sync(project_id, node_id, 10, "processing", f"Extending (#{extension_count})...")
+        return {
+            "video_url": video_result["video_url"],
+            "video_id": str(uuid4()),
+            "extension_count": extension_count,
+            "source_video_url": video_url,
+            "resolution": "720p",
+            "remaining_extensions": 20 - extension_count,
+            "veo_video_uri": new_veo_video_uri,
+            "veo_video_name": new_veo_video_name,
+        }
 
-        # Poll for completion
-        poll_count = 0
-        max_polls = settings.VEO_MAX_POLL_TIME // settings.VEO_POLL_INTERVAL
-
-        while poll_count < max_polls:
-            result = loop.run_until_complete(veo_service.poll_operation(operation_id))
-
-            if result["done"]:
-                if result["error"]:
-                    raise Exception(result["error"])
-
-                broadcast_progress_sync(project_id, node_id, 85, "processing", "Downloading...")
-
-                video_id = str(uuid4())
-                destination_path = f"videos/{project_id}/{video_id}"
-
-                video_result = loop.run_until_complete(
-                    veo_service.download_generated_video(
-                        operation_result=result["result"],
-                        destination_path=destination_path,
-                        select_best=True,
-                    )
-                )
-
-                result_data = {
-                    "video_url": video_result["video_url"],
-                    "video_id": video_id,
-                    "extension_count": extension_count,
-                    "source_video_url": video_url,
-                    "resolution": "720p",
-                    "remaining_extensions": 20 - extension_count,
-                }
-
-                update_job_status_sync(job_id, JobStatus.COMPLETED, progress=100, result=result_data)
-                update_node_status_sync(node_id, NodeStatus.COMPLETED, data=result_data)
-                broadcast_progress_sync(project_id, node_id, 100, "completed", "Complete")
-
-                return result_data
-
-            poll_count += 1
-            progress = min(10 + int(poll_count * 70 / max_polls), 80)
-
-            self.update_state(state="PROGRESS", meta={"progress": progress})
-            update_job_status_sync(job_id, JobStatus.PROCESSING, progress=progress)
-            broadcast_progress_sync(project_id, node_id, progress, "processing", "Extending...")
-
-            loop.run_until_complete(asyncio.sleep(settings.VEO_POLL_INTERVAL))
-
-        raise Exception("Extension timed out")
-
-    except Exception as e:
-        logger.error(f"Video extension failed: {e}")
-
-        if self.request.retries >= self.max_retries:
-            update_job_status_sync(job_id, JobStatus.FAILED, error=str(e))
-            update_node_status_sync(node_id, NodeStatus.FAILED, error_message=str(e))
-
-        raise
-
-    finally:
-        loop.close()
+    return _execute_video_operation(
+        celery_task=self,
+        job_id=job_id,
+        node_id=node_id,
+        project_id=project_id,
+        start_operation=start_operation,
+        operation_label=f"Extending (#{extension_count})",
+        build_result_data=build_result,
+    )

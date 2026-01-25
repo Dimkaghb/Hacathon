@@ -7,6 +7,7 @@ Provides endpoints for:
 - Video generation (text-to-video, image-to-video)
 - Video extension
 """
+from typing import Any, Callable, Dict
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -38,6 +39,54 @@ from app.tasks.video_tasks import extend_video as extend_video_task
 from app.tasks.face_tasks import analyze_face as analyze_face_task
 
 router = APIRouter()
+
+
+async def create_and_dispatch_video_job(
+    db: AsyncSession,
+    node: Node,
+    job_type: JobType,
+    celery_task: Callable,
+    task_kwargs: Dict[str, Any],
+) -> Job:
+    """
+    Create a job record and dispatch it to Celery.
+
+    This consolidates the common job creation and dispatch logic
+    for video generation and extension endpoints.
+
+    Args:
+        db: Database session
+        node: The node associated with this job
+        job_type: Type of job (VIDEO_GENERATION or VIDEO_EXTENSION)
+        celery_task: The Celery task to dispatch
+        task_kwargs: Keyword arguments to pass to the Celery task
+
+    Returns:
+        The created Job record
+    """
+    # Update node status
+    node.status = NodeStatus.PROCESSING
+    await db.commit()
+
+    # Create job record
+    job = Job(
+        node_id=node.id,
+        type=job_type,
+        status=JobStatus.PENDING,
+    )
+    db.add(job)
+    await db.commit()
+    await db.refresh(job)
+
+    # Dispatch Celery task with standard parameters
+    celery_task.delay(
+        job_id=str(job.id),
+        node_id=str(node.id),
+        project_id=str(node.project_id),
+        **task_kwargs,
+    )
+
+    return job
 
 
 @router.post("/analyze-face", response_model=JobStatusResponse)
@@ -166,35 +215,24 @@ async def generate_video(
             detail="Node not found",
         )
 
-    # Update node status
-    node.status = NodeStatus.PROCESSING
-    await db.commit()
-
-    # Create job record
-    job = Job(
-        node_id=node.id,
-        type=JobType.VIDEO_GENERATION,
-        status=JobStatus.PENDING,
-    )
-    db.add(job)
-    await db.commit()
-    await db.refresh(job)
-
-    # Dispatch Celery task
-    generate_video_task.delay(
-        job_id=str(job.id),
-        node_id=str(node.id),
-        project_id=str(node.project_id),
-        prompt=request.prompt,
-        image_url=request.image_url,
-        character_id=str(request.character_id) if request.character_id else None,
-        resolution=request.resolution.value,
-        aspect_ratio=request.aspect_ratio.value,
-        duration=request.duration,
-        negative_prompt=request.negative_prompt,
-        seed=request.seed,
-        num_videos=request.num_videos,
-        use_fast_model=request.use_fast_model,
+    # Create and dispatch job
+    job = await create_and_dispatch_video_job(
+        db=db,
+        node=node,
+        job_type=JobType.VIDEO_GENERATION,
+        celery_task=generate_video_task,
+        task_kwargs={
+            "prompt": request.prompt,
+            "image_url": request.image_url,
+            "character_id": str(request.character_id) if request.character_id else None,
+            "resolution": request.resolution.value,
+            "aspect_ratio": request.aspect_ratio.value,
+            "duration": request.duration,
+            "negative_prompt": request.negative_prompt,
+            "seed": request.seed,
+            "num_videos": request.num_videos,
+            "use_fast_model": request.use_fast_model,
+        },
     )
 
     return JobStatusResponse(
@@ -234,38 +272,27 @@ async def extend_video(
             detail="Node not found",
         )
 
-    # Validate extension count
+    # Validate extension count (endpoint-specific validation)
     if request.extension_count > 20:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Maximum extension limit is 20",
         )
 
-    # Update node status
-    node.status = NodeStatus.PROCESSING
-    await db.commit()
-
-    # Create job record
-    job = Job(
-        node_id=node.id,
-        type=JobType.VIDEO_EXTENSION,
-        status=JobStatus.PENDING,
-    )
-    db.add(job)
-    await db.commit()
-    await db.refresh(job)
-
-    # Dispatch Celery task
-    extend_video_task.delay(
-        job_id=str(job.id),
-        node_id=str(node.id),
-        project_id=str(node.project_id),
-        video_url=request.video_url,
-        prompt=request.prompt,
-        seed=request.seed,
-        extension_count=request.extension_count,
-        veo_video_uri=request.veo_video_uri,
-        veo_video_name=request.veo_video_name,
+    # Create and dispatch job
+    job = await create_and_dispatch_video_job(
+        db=db,
+        node=node,
+        job_type=JobType.VIDEO_EXTENSION,
+        celery_task=extend_video_task,
+        task_kwargs={
+            "video_url": request.video_url,
+            "prompt": request.prompt,
+            "seed": request.seed,
+            "extension_count": request.extension_count,
+            "veo_video_uri": request.veo_video_uri,
+            "veo_video_name": request.veo_video_name,
+        },
     )
 
     return JobStatusResponse(

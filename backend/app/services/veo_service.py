@@ -12,6 +12,9 @@ import asyncio
 import base64
 import httpx
 import logging
+import os
+import tempfile
+from dataclasses import dataclass
 from typing import Optional, Dict, Any, List
 from google import genai
 from google.genai import types
@@ -21,6 +24,14 @@ from app.config import settings
 from app.services.storage_service import storage_service
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class VideoResource:
+    """Represents extracted video data from the Veo API response."""
+    video_bytes: bytes
+    veo_video_uri: Optional[str] = None
+    veo_video_name: Optional[str] = None
 
 
 class VeoService:
@@ -96,6 +107,90 @@ class VeoService:
         elif url_lower.endswith('.webm'):
             return "video/webm"
         return "image/jpeg"  # Default
+
+    async def _extract_video_resource(self, video_obj: Any, idx: int = 0) -> Optional[VideoResource]:
+        """
+        Extract video bytes and references from a Veo API video object.
+
+        Handles the various ways the API might return video data:
+        1. Direct video_bytes attribute
+        2. URI that needs to be downloaded
+        3. File reference requiring client.files.download()
+
+        Args:
+            video_obj: A video object from the Veo API response
+            idx: Index for logging purposes
+
+        Returns:
+            VideoResource with bytes and references, or None if extraction fails
+        """
+        if not hasattr(video_obj, "video") or not video_obj.video:
+            logger.warning(f"Video {idx}: No 'video' attribute or it's None")
+            return None
+
+        video = video_obj.video
+        video_bytes = None
+        veo_video_uri = None
+        veo_video_name = None
+
+        logger.debug(f"Video {idx}.video type: {type(video)}")
+
+        # Capture the Veo video references for extension capability
+        if hasattr(video, "uri") and video.uri:
+            veo_video_uri = video.uri
+            logger.info(f"Video {idx}: Captured Veo URI for extension: {veo_video_uri}")
+        if hasattr(video, "name") and video.name:
+            veo_video_name = video.name
+            logger.info(f"Video {idx}: Captured Veo name for extension: {veo_video_name}")
+
+        # Method 1: Direct video_bytes access
+        if hasattr(video, "video_bytes") and video.video_bytes:
+            logger.info(f"Video {idx}: Found video_bytes directly")
+            video_bytes = video.video_bytes
+
+        # Method 2: URI download
+        elif hasattr(video, "uri") and video.uri:
+            logger.info(f"Video {idx}: Found URI, downloading from: {video.uri}")
+            video_bytes = await self._load_video_bytes(video.uri)
+
+        # Method 3: Download via client.files.download() and temp file
+        else:
+            logger.info(f"Video {idx}: Attempting to download via client.files.download()")
+            loop = asyncio.get_event_loop()
+
+            # Download the video (modifies video object in-place)
+            await loop.run_in_executor(
+                None,
+                lambda v=video_obj: self.client.files.download(file=v.video)
+            )
+
+            # Save to temp file and read back
+            with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as tmp:
+                tmp_path = tmp.name
+
+            try:
+                await loop.run_in_executor(
+                    None,
+                    lambda: video.save(tmp_path)
+                )
+
+                with open(tmp_path, 'rb') as f:
+                    video_bytes = f.read()
+
+                logger.info(f"Video {idx}: Downloaded via temp file, size: {len(video_bytes)} bytes")
+            finally:
+                if os.path.exists(tmp_path):
+                    os.unlink(tmp_path)
+
+        if not video_bytes:
+            logger.warning(f"Video {idx}: No video bytes found after all attempts")
+            return None
+
+        return VideoResource(
+            video_bytes=video_bytes,
+            veo_video_uri=veo_video_uri,
+            veo_video_name=veo_video_name,
+        )
 
     async def generate_video(
         self,
@@ -472,104 +567,69 @@ class VeoService:
 
         # Debug: Log the structure of the response
         logger.info(f"Operation result type: {type(operation_result)}")
-        logger.info(f"Operation result dir: {[attr for attr in dir(operation_result) if not attr.startswith('_')]}")
-        
-        if hasattr(operation_result, "generated_videos"):
-            videos = operation_result.generated_videos
-            logger.info(f"Found {len(videos)} generated videos")
+        logger.debug(f"Operation result dir: {[attr for attr in dir(operation_result) if not attr.startswith('_')]}")
 
-            for idx, video in enumerate(videos):
-                logger.info(f"Video {idx} type: {type(video)}")
-                logger.info(f"Video {idx} dir: {[attr for attr in dir(video) if not attr.startswith('_')]}")
-                
-                if hasattr(video, "video") and video.video:
-                    video_bytes = None
-                    veo_video_uri = None  # Store original Veo URI for extension
-                    veo_video_name = None  # Store original Veo file name
-
-                    logger.info(f"Video {idx}.video type: {type(video.video)}")
-                    logger.info(f"Video {idx}.video dir: {[attr for attr in dir(video.video) if not attr.startswith('_')]}")
-
-                    # Capture the Veo video reference for extension
-                    if hasattr(video.video, "uri") and video.video.uri:
-                        veo_video_uri = video.video.uri
-                        logger.info(f"Video {idx}: Captured Veo URI for extension: {veo_video_uri}")
-                    if hasattr(video.video, "name") and video.video.name:
-                        veo_video_name = video.video.name
-                        logger.info(f"Video {idx}: Captured Veo name for extension: {veo_video_name}")
-
-                    # Method 1: Direct video_bytes access
-                    if hasattr(video.video, "video_bytes") and video.video.video_bytes:
-                        logger.info(f"Video {idx}: Found video_bytes directly")
-                        video_bytes = video.video.video_bytes
-
-                    # Method 2: URI download
-                    elif hasattr(video.video, "uri") and video.video.uri:
-                        logger.info(f"Video {idx}: Found URI, downloading from: {video.video.uri}")
-                        video_bytes = await self._load_video_bytes(video.video.uri)
-
-                    # Method 3: Download via client, then save to temp file and read back
-                    else:
-                        logger.info(f"Video {idx}: Attempting to download via client.files.download()")
-                        loop = asyncio.get_event_loop()
-
-                        # Download the video (modifies video object in-place)
-                        await loop.run_in_executor(
-                            None,
-                            lambda v=video: self.client.files.download(file=v.video)
-                        )
-
-                        # Now try to get bytes - use a temp file
-                        import tempfile
-                        import os
-
-                        with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as tmp:
-                            tmp_path = tmp.name
-
-                        try:
-                            # Save to temp file
-                            await loop.run_in_executor(
-                                None,
-                                lambda: video.video.save(tmp_path)
-                            )
-
-                            # Read bytes back
-                            with open(tmp_path, 'rb') as f:
-                                video_bytes = f.read()
-
-                            logger.info(f"Video {idx}: Successfully downloaded via temp file, size: {len(video_bytes)} bytes")
-                        finally:
-                            # Clean up temp file
-                            if os.path.exists(tmp_path):
-                                os.unlink(tmp_path)
-
-                    if video_bytes:
-                        # Store each video
-                        video_path = f"{destination_path}_{idx}.mp4" if len(videos) > 1 else f"{destination_path}.mp4"
-
-                        url = await storage_service.upload_file(
-                            file_data=video_bytes,
-                            object_name=video_path,
-                            content_type="video/mp4",
-                        )
-
-                        video_info = {
-                            "video_url": url,
-                            "index": idx,
-                            "size_bytes": len(video_bytes),
-                            "veo_video_uri": veo_video_uri,  # Original Veo URI for extension
-                            "veo_video_name": veo_video_name,  # Original Veo file name
-                        }
-
-                        videos_data.append(video_info)
-                        logger.info(f"Stored video {idx} at {video_path}")
-                    else:
-                        logger.warning(f"Video {idx}: No video bytes found after all attempts")
-                else:
-                    logger.warning(f"Video {idx}: No 'video' attribute or it's None")
-        else:
+        if not hasattr(operation_result, "generated_videos"):
             logger.error(f"No 'generated_videos' attribute found in operation result")
             logger.error(f"Available attributes: {[attr for attr in dir(operation_result) if not attr.startswith('_')]}")
+            raise ValueError("No video data found in operation result")
+
+        videos = operation_result.generated_videos
+        
+        # Check if videos were filtered by safety filters (RAI)
+        if videos is None:
+            # Check for RAI filtering
+            rai_count = getattr(operation_result, "rai_media_filtered_count", None)
+            rai_reasons = getattr(operation_result, "rai_media_filtered_reasons", None)
+            
+            if rai_count and rai_count > 0:
+                reason_str = ", ".join(rai_reasons) if rai_reasons else "content policy violation"
+                logger.warning(f"Video generation blocked by safety filters: {reason_str}")
+                raise ValueError(f"Video generation was blocked by safety filters: {reason_str}. Please modify your prompt.")
+            
+            logger.error("generated_videos is None but no RAI filtering detected")
+            raise ValueError("Video generation returned no results. Please try a different prompt.")
+        
+        logger.info(f"Found {len(videos)} generated videos")
+        
+        if len(videos) == 0:
+            # Check for RAI filtering
+            rai_count = getattr(operation_result, "rai_media_filtered_count", None)
+            rai_reasons = getattr(operation_result, "rai_media_filtered_reasons", None)
+            
+            if rai_count and rai_count > 0:
+                reason_str = ", ".join(rai_reasons) if rai_reasons else "content policy violation"
+                logger.warning(f"Video generation blocked by safety filters: {reason_str}")
+                raise ValueError(f"Video generation was blocked by safety filters: {reason_str}. Please modify your prompt.")
+            
+            raise ValueError("Video generation returned empty results. Please try a different prompt.")
+
+        for idx, video_obj in enumerate(videos):
+            # Use the extraction helper to resolve video data
+            resource = await self._extract_video_resource(video_obj, idx)
+
+            if resource is None:
+                continue
+
+            # Store video to cloud storage
+            video_path = f"{destination_path}_{idx}.mp4" if len(videos) > 1 else f"{destination_path}.mp4"
+
+            url = await storage_service.upload_file(
+                file_data=resource.video_bytes,
+                object_name=video_path,
+                content_type="video/mp4",
+            )
+
+            video_info = {
+                "video_url": url,
+                "index": idx,
+                "size_bytes": len(resource.video_bytes),
+                "veo_video_uri": resource.veo_video_uri,
+                "veo_video_name": resource.veo_video_name,
+            }
+
+            videos_data.append(video_info)
+            logger.info(f"Stored video {idx} at {video_path}")
 
         if not videos_data:
             raise ValueError("No video data found in operation result")
