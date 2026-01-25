@@ -44,7 +44,7 @@ class VideoGenerationWorker(BaseWorker):
         prompt = job_data["prompt"]
         image_url = job_data.get("image_url")
         character_id = job_data.get("character_id")
-        resolution = job_data.get("resolution", "1080p")
+        resolution = job_data.get("resolution", "720p")
         aspect_ratio = job_data.get("aspect_ratio", "16:9")
         duration = job_data.get("duration", 8)
         negative_prompt = job_data.get("negative_prompt")

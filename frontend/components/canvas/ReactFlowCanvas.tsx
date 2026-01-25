@@ -747,7 +747,7 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
         node_id: nodeId,
         prompt,
         image_url: imageUrl || undefined,
-        resolution: videoNode.data?.resolution || '1080p',
+        resolution: videoNode.data?.resolution || '720p',
         duration: videoNode.data?.duration || 8,
         aspect_ratio: '16:9',
       });

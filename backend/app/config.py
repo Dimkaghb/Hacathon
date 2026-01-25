@@ -60,7 +60,7 @@ class Settings(BaseSettings):
     # Veo Configuration
     VEO_MODEL: str = "veo-3.1-generate-preview"
     VEO_FAST_MODEL: str = "veo-3.1-fast-generate-preview"
-    VEO_DEFAULT_RESOLUTION: str = "1080p"
+    VEO_DEFAULT_RESOLUTION: str = "720p"
     VEO_DEFAULT_DURATION: int = 8
     VEO_DEFAULT_ASPECT_RATIO: str = "16:9"
     VEO_POLL_INTERVAL: int = 10
