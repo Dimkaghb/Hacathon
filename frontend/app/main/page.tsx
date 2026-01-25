@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import NodeEditor from "@/components/NodeEditor";
+import ReactFlowCanvas from "@/components/canvas/ReactFlowCanvas";
 import BackendConnection from "@/components/BackendConnection";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { projectsApi } from "@/lib/api";
@@ -140,8 +140,8 @@ export default function MainPage() {
 
   return (
     <div className="w-full h-screen overflow-hidden bg-[#1a1a1a]">
-      {/* Node Editor */}
-      <NodeEditor projectId={projectId} />
+      {/* React Flow Canvas */}
+      <ReactFlowCanvas projectId={projectId} />
 
       {/* Backend Connection Status */}
       <BackendConnection />
