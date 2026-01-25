@@ -1,22 +1,38 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 
 from app.core.database import get_db
 from app.models.user import User
-from app.models.project import Project
+from app.models.project import Project, generate_share_token
 from app.schemas.project import (
     ProjectCreate,
     ProjectUpdate,
     ProjectResponse,
     ProjectDetailResponse,
+    ShareLinkResponse,
 )
 from app.api.deps import get_current_user, verify_project_access
 
 router = APIRouter()
+
+
+# Helper to get project by share token
+async def get_project_by_share_token(
+    share_token: str,
+    db: AsyncSession,
+) -> Optional[Project]:
+    """Get a project by its share token if sharing is enabled"""
+    result = await db.execute(
+        select(Project).where(
+            Project.share_token == share_token,
+            Project.share_enabled == True,
+        )
+    )
+    return result.scalar_one_or_none()
 
 
 @router.get("", response_model=List[ProjectResponse])
@@ -103,3 +119,132 @@ async def delete_project(
 ):
     await db.delete(project)
     await db.commit()
+
+
+# ============================================
+# Sharing Endpoints
+# ============================================
+
+@router.post("/{project_id}/share", response_model=ShareLinkResponse)
+async def enable_sharing(
+    project_id: UUID,
+    request: Request,
+    project: Project = Depends(verify_project_access),
+    db: AsyncSession = Depends(get_db),
+):
+    """Enable sharing for a project and get the share link"""
+    # Generate token if not exists
+    if not project.share_token:
+        project.share_token = generate_share_token()
+    
+    project.share_enabled = True
+    await db.commit()
+    await db.refresh(project)
+    
+    # Build share URL
+    base_url = str(request.base_url).rstrip('/')
+    # Frontend URL - assuming it's on a different port or same origin
+    frontend_url = base_url.replace(':8000', ':3000')  # Adjust as needed
+    share_url = f"{frontend_url}/main?share={project.share_token}"
+    
+    return ShareLinkResponse(
+        share_enabled=True,
+        share_token=project.share_token,
+        share_url=share_url,
+    )
+
+
+@router.delete("/{project_id}/share", response_model=ShareLinkResponse)
+async def disable_sharing(
+    project_id: UUID,
+    project: Project = Depends(verify_project_access),
+    db: AsyncSession = Depends(get_db),
+):
+    """Disable sharing for a project"""
+    project.share_enabled = False
+    await db.commit()
+    await db.refresh(project)
+    
+    return ShareLinkResponse(
+        share_enabled=False,
+        share_token=None,
+        share_url=None,
+    )
+
+
+@router.post("/{project_id}/share/regenerate", response_model=ShareLinkResponse)
+async def regenerate_share_link(
+    project_id: UUID,
+    request: Request,
+    project: Project = Depends(verify_project_access),
+    db: AsyncSession = Depends(get_db),
+):
+    """Regenerate the share token (invalidates old links)"""
+    project.share_token = generate_share_token()
+    project.share_enabled = True
+    await db.commit()
+    await db.refresh(project)
+    
+    frontend_url = str(request.base_url).rstrip('/').replace(':8000', ':3000')
+    share_url = f"{frontend_url}/main?share={project.share_token}"
+    
+    return ShareLinkResponse(
+        share_enabled=True,
+        share_token=project.share_token,
+        share_url=share_url,
+    )
+
+
+@router.get("/{project_id}/share", response_model=ShareLinkResponse)
+async def get_share_status(
+    project_id: UUID,
+    request: Request,
+    project: Project = Depends(verify_project_access),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get current sharing status for a project"""
+    share_url = None
+    if project.share_enabled and project.share_token:
+        frontend_url = str(request.base_url).rstrip('/').replace(':8000', ':3000')
+        share_url = f"{frontend_url}/main?share={project.share_token}"
+    
+    return ShareLinkResponse(
+        share_enabled=project.share_enabled or False,
+        share_token=project.share_token if project.share_enabled else None,
+        share_url=share_url,
+    )
+
+
+# ============================================
+# Shared Project Access (Public endpoint)
+# ============================================
+
+@router.get("/shared/{share_token}", response_model=ProjectDetailResponse)
+async def get_shared_project(
+    share_token: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Access a project via share token.
+    This is a public endpoint - no authentication required.
+    """
+    result = await db.execute(
+        select(Project)
+        .where(
+            Project.share_token == share_token,
+            Project.share_enabled == True,
+        )
+        .options(
+            selectinload(Project.nodes),
+            selectinload(Project.connections),
+        )
+    )
+    project = result.scalar_one_or_none()
+    
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Shared project not found or sharing is disabled",
+        )
+    
+    return project

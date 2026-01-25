@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from datetime import datetime
 from uuid import UUID
 from typing import Optional, Dict, Any, List
@@ -44,8 +44,16 @@ class ProjectResponse(BaseModel):
     name: str
     description: Optional[str] = None
     canvas_state: Dict[str, Any]
+    share_enabled: bool = False
+    share_token: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+
+    @field_validator('share_enabled', mode='before')
+    @classmethod
+    def default_share_enabled(cls, v):
+        """Convert None to False for share_enabled"""
+        return v if v is not None else False
 
     class Config:
         from_attributes = True
@@ -54,3 +62,9 @@ class ProjectResponse(BaseModel):
 class ProjectDetailResponse(ProjectResponse):
     nodes: List[NodeSummary] = []
     connections: List[ConnectionSummary] = []
+
+
+class ShareLinkResponse(BaseModel):
+    share_enabled: bool
+    share_token: Optional[str] = None
+    share_url: Optional[str] = None

@@ -15,15 +15,25 @@ export default function MainPage() {
   const [projectName, setProjectName] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [showProjectDialog, setShowProjectDialog] = useState(false);
+  const [isSharedAccess, setIsSharedAccess] = useState(false);
+  const [shareToken, setShareToken] = useState<string | null>(null);
 
+  // Check for share token first (allows guest access)
   useEffect(() => {
-    // Redirect to login if not authenticated (after loading check)
-    if (!authLoading && !isAuthenticated) {
+    const shareParam = searchParams.get('share');
+    if (shareParam) {
+      setShareToken(shareParam);
+      setIsSharedAccess(true);
+      loadSharedProject(shareParam);
+    } else if (!authLoading && !isAuthenticated) {
+      // No share token and not authenticated - redirect to login
       router.push('/login');
     }
-  }, [isAuthenticated, authLoading, router]);
+  }, [searchParams, authLoading, isAuthenticated, router]);
 
+  // Load authenticated user's project if no share token
   useEffect(() => {
+    if (isSharedAccess) return; // Skip if using shared access
     if (!isAuthenticated) return;
 
     const projectIdParam = searchParams.get('project');
@@ -34,7 +44,22 @@ export default function MainPage() {
       // Try to get or create a default project
       loadOrCreateProject();
     }
-  }, [isAuthenticated, searchParams]);
+  }, [isAuthenticated, searchParams, isSharedAccess]);
+
+  const loadSharedProject = async (token: string) => {
+    try {
+      setLoading(true);
+      const project = await projectsApi.getShared(token);
+      setProjectId(project.id);
+      setProjectName(project.name);
+    } catch (error) {
+      console.error('Failed to load shared project:', error);
+      // Shared project not found or disabled
+      router.push('/login?error=shared_not_found');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadProject = async (id: string) => {
     try {
@@ -81,7 +106,7 @@ export default function MainPage() {
     }
   };
 
-  // Show loading or nothing while checking auth
+  // Show loading
   if (authLoading || loading) {
     return (
       <div className="w-full h-screen overflow-hidden bg-[#1a1a1a] flex items-center justify-center">
@@ -90,13 +115,13 @@ export default function MainPage() {
     );
   }
 
-  // Don't render if not authenticated (will redirect)
-  if (!isAuthenticated) {
+  // Don't render if not authenticated and not shared access (will redirect)
+  if (!isAuthenticated && !isSharedAccess) {
     return null;
   }
 
-  // Show project dialog if no project
-  if (showProjectDialog) {
+  // Show project dialog if no project (only for authenticated users)
+  if (showProjectDialog && !isSharedAccess) {
     return (
       <div className="w-full h-screen overflow-hidden bg-[#1a1a1a] flex items-center justify-center">
         <div className="bg-[#2a2a2a] p-8 rounded-lg border border-gray-700 max-w-md w-full">
@@ -140,29 +165,53 @@ export default function MainPage() {
 
   return (
     <div className="w-full h-screen overflow-hidden bg-[#1a1a1a]">
-      {/* React Flow Canvas */}
-      <ReactFlowCanvas projectId={projectId} />
+      {/* React Flow Canvas - pass share token for WebSocket */}
+      <ReactFlowCanvas projectId={projectId} shareToken={shareToken} />
 
       {/* Backend Connection Status */}
       <BackendConnection />
 
-      {/* User Info & Logout */}
-      <div className="absolute top-4 left-4 z-20 bg-[#2a2a2a] px-4 py-2 rounded-lg shadow-lg border border-gray-700 flex items-center gap-3">
+      {/* User Info & Logout - different UI for guests */}
+      <div className="absolute top-14 left-4 z-20 bg-[#2a2a2a] px-4 py-2 rounded-lg shadow-lg border border-gray-700 flex items-center gap-3">
         <div className="text-sm">
           <div className="text-gray-400 text-xs">Project</div>
           <div className="text-white font-medium">{projectName}</div>
         </div>
-        <div className="w-px h-6 bg-gray-600"></div>
-        <div className="text-sm">
-          <div className="text-gray-400 text-xs">User</div>
-          <div className="text-white font-medium">{user?.email}</div>
-        </div>
-        <button
-          onClick={logout}
-          className="ml-2 px-3 py-1.5 text-xs bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
-        >
-          Logout
-        </button>
+        
+        {isSharedAccess ? (
+          <>
+            <div className="w-px h-6 bg-gray-600"></div>
+            <div className="text-sm">
+              <div className="text-gray-400 text-xs">Access</div>
+              <div className="text-[var(--color-success)] font-medium flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-current"></span>
+                Shared Link
+              </div>
+            </div>
+            {!isAuthenticated && (
+              <button
+                onClick={() => router.push('/login')}
+                className="ml-2 px-3 py-1.5 text-xs bg-[var(--color-accent-primary)] text-white rounded hover:bg-[var(--color-accent-primary-hover)] transition-colors"
+              >
+                Sign In
+              </button>
+            )}
+          </>
+        ) : (
+          <>
+            <div className="w-px h-6 bg-gray-600"></div>
+            <div className="text-sm">
+              <div className="text-gray-400 text-xs">User</div>
+              <div className="text-white font-medium">{user?.email}</div>
+            </div>
+            <button
+              onClick={logout}
+              className="ml-2 px-3 py-1.5 text-xs bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+            >
+              Logout
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

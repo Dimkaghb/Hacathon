@@ -1,7 +1,7 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from uuid import UUID
+from uuid import UUID, uuid4
 from typing import Optional
 
 from app.core.database import AsyncSessionLocal
@@ -15,6 +15,9 @@ router = APIRouter()
 
 async def get_user_from_token(token: str) -> Optional[User]:
     """Validate token and get user"""
+    if not token or token == "guest":
+        return None
+        
     payload = decode_token(token)
     if not payload or payload.get("type") != "access":
         return None
@@ -28,34 +31,52 @@ async def get_user_from_token(token: str) -> Optional[User]:
         return result.scalar_one_or_none()
 
 
-async def verify_project_access_ws(user: User, project_id: UUID) -> bool:
-    """Verify user has access to project"""
+async def verify_project_access_ws(user: Optional[User], project_id: UUID, share_token: Optional[str] = None) -> bool:
+    """Verify access to project - either by ownership or share token"""
     async with AsyncSessionLocal() as db:
-        result = await db.execute(
-            select(Project).where(
-                Project.id == project_id,
-                Project.user_id == user.id,
+        # Check share token access first
+        if share_token:
+            result = await db.execute(
+                select(Project).where(
+                    Project.id == project_id,
+                    Project.share_token == share_token,
+                    Project.share_enabled == True,
+                )
             )
-        )
-        return result.scalar_one_or_none() is not None
+            if result.scalar_one_or_none():
+                return True
+        
+        # Check owner access
+        if user:
+            result = await db.execute(
+                select(Project).where(
+                    Project.id == project_id,
+                    Project.user_id == user.id,
+                )
+            )
+            if result.scalar_one_or_none():
+                return True
+        
+        return False
 
 
 @router.websocket("/projects/{project_id}")
 async def websocket_endpoint(
     websocket: WebSocket,
     project_id: UUID,
-    token: str = Query(...),
+    token: str = Query(default="guest"),
+    share: Optional[str] = Query(default=None),
 ):
-    # Authenticate user
+    # Try to authenticate user (optional for shared projects)
     user = await get_user_from_token(token)
-    if not user:
-        await websocket.close(code=4001, reason="Unauthorized")
-        return
+    
+    # Generate a guest ID for unauthenticated users
+    user_id = str(user.id) if user else f"guest_{uuid4().hex[:8]}"
 
-    # Verify project access
-    has_access = await verify_project_access_ws(user, project_id)
+    # Verify project access (either owner or via share token)
+    has_access = await verify_project_access_ws(user, project_id, share)
     if not has_access:
-        await websocket.close(code=4003, reason="Forbidden")
+        await websocket.close(code=4003, reason="Forbidden - No access to this project")
         return
 
     # Connect to project room
@@ -67,7 +88,8 @@ async def websocket_endpoint(
             {
                 "type": "connected",
                 "project_id": str(project_id),
-                "user_id": str(user.id),
+                "user_id": user_id,
+                "is_guest": user is None,
             },
             websocket,
         )
@@ -88,7 +110,7 @@ async def websocket_endpoint(
                     str(project_id),
                     {
                         "type": "cursor_move",
-                        "user_id": str(user.id),
+                        "user_id": user_id,
                         "x": data.get("x"),
                         "y": data.get("y"),
                     },
@@ -100,7 +122,7 @@ async def websocket_endpoint(
                     str(project_id),
                     {
                         "type": "node_select",
-                        "user_id": str(user.id),
+                        "user_id": user_id,
                         "node_id": data.get("node_id"),
                     },
                 )
@@ -112,6 +134,6 @@ async def websocket_endpoint(
             str(project_id),
             {
                 "type": "user_disconnected",
-                "user_id": str(user.id),
+                "user_id": user_id,
             },
         )

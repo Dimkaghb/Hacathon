@@ -1,7 +1,7 @@
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from typing import Optional
 from uuid import UUID
 
@@ -72,21 +72,49 @@ async def get_current_user_optional(
 
 async def verify_project_access(
     project_id: UUID,
-    current_user: User = Depends(get_current_user),
+    share: Optional[str] = Query(None, description="Share token for accessing shared projects"),
+    current_user: Optional[User] = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ) -> Project:
-    result = await db.execute(
-        select(Project).where(
-            Project.id == project_id,
-            Project.user_id == current_user.id
+    """
+    Verify access to a project. Access is granted if:
+    1. User owns the project (user_id matches)
+    2. Project has sharing enabled and share token matches
+    """
+    # First, try to find project by ownership
+    if current_user:
+        result = await db.execute(
+            select(Project).where(
+                Project.id == project_id,
+                Project.user_id == current_user.id
+            )
         )
-    )
-    project = result.scalar_one_or_none()
-
-    if project is None:
+        project = result.scalar_one_or_none()
+        if project:
+            return project
+    
+    # If not owner, check for share token access
+    if share:
+        result = await db.execute(
+            select(Project).where(
+                Project.id == project_id,
+                Project.share_token == share,
+                Project.share_enabled == True
+            )
+        )
+        project = result.scalar_one_or_none()
+        if project:
+            return project
+    
+    # No access
+    if not current_user:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project not found",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"},
         )
-
-    return project
+    
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Project not found",
+    )

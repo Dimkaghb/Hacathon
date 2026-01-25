@@ -224,6 +224,60 @@ export const projectsApi = {
       method: 'DELETE',
     });
   },
+
+  // Sharing methods
+  enableSharing: async (projectId: string) => {
+    return apiFetch<{
+      share_enabled: boolean;
+      share_token: string | null;
+      share_url: string | null;
+    }>(`/api/projects/${projectId}/share`, {
+      method: 'POST',
+    });
+  },
+
+  disableSharing: async (projectId: string) => {
+    return apiFetch<{
+      share_enabled: boolean;
+      share_token: string | null;
+      share_url: string | null;
+    }>(`/api/projects/${projectId}/share`, {
+      method: 'DELETE',
+    });
+  },
+
+  regenerateShareLink: async (projectId: string) => {
+    return apiFetch<{
+      share_enabled: boolean;
+      share_token: string | null;
+      share_url: string | null;
+    }>(`/api/projects/${projectId}/share/regenerate`, {
+      method: 'POST',
+    });
+  },
+
+  getShareStatus: async (projectId: string) => {
+    return apiFetch<{
+      share_enabled: boolean;
+      share_token: string | null;
+      share_url: string | null;
+    }>(`/api/projects/${projectId}/share`);
+  },
+
+  // Access shared project (no auth required)
+  getShared: async (shareToken: string) => {
+    return apiFetch<{
+      id: string;
+      name: string;
+      description: string | null;
+      canvas_state: any;
+      share_enabled: boolean;
+      created_at: string;
+      updated_at: string;
+      nodes: any[];
+      connections: any[];
+    }>(`/api/projects/shared/${shareToken}`);
+  },
 };
 
 // Health check
@@ -233,9 +287,18 @@ export const healthApi = {
   },
 };
 
+// Helper to build URL with optional share token
+const buildUrl = (path: string, shareToken?: string | null) => {
+  if (shareToken) {
+    const separator = path.includes('?') ? '&' : '?';
+    return `${path}${separator}share=${shareToken}`;
+  }
+  return path;
+};
+
 // Nodes API
 export const nodesApi = {
-  list: async (projectId: string) => {
+  list: async (projectId: string, shareToken?: string | null) => {
     return apiFetch<
       Array<{
         id: string;
@@ -250,7 +313,23 @@ export const nodesApi = {
         created_at: string;
         updated_at: string;
       }>
-    >(`/api/projects/${projectId}/nodes`);
+    >(buildUrl(`/api/projects/${projectId}/nodes`, shareToken));
+  },
+
+  get: async (projectId: string, nodeId: string, shareToken?: string | null) => {
+    return apiFetch<{
+      id: string;
+      project_id: string;
+      type: string;
+      position_x: number;
+      position_y: number;
+      data: Record<string, any>;
+      status: string;
+      character_id?: string;
+      error_message?: string;
+      created_at: string;
+      updated_at: string;
+    }>(buildUrl(`/api/projects/${projectId}/nodes/${nodeId}`, shareToken));
   },
 
   create: async (projectId: string, nodeData: {
@@ -259,7 +338,7 @@ export const nodesApi = {
     position_y: number;
     data?: Record<string, any>;
     character_id?: string;
-  }) => {
+  }, shareToken?: string | null) => {
     return apiFetch<{
       id: string;
       project_id: string;
@@ -270,7 +349,7 @@ export const nodesApi = {
       status: string;
       created_at: string;
       updated_at: string;
-    }>(`/api/projects/${projectId}/nodes`, {
+    }>(buildUrl(`/api/projects/${projectId}/nodes`, shareToken), {
       method: 'POST',
       body: JSON.stringify(nodeData),
     });
@@ -281,21 +360,21 @@ export const nodesApi = {
     position_y?: number;
     data?: Record<string, any>;
     character_id?: string;
-  }) => {
+  }, shareToken?: string | null) => {
     return apiFetch<{
       id: string;
       position_x: number;
       position_y: number;
       data: Record<string, any>;
       status: string;
-    }>(`/api/projects/${projectId}/nodes/${nodeId}`, {
+    }>(buildUrl(`/api/projects/${projectId}/nodes/${nodeId}`, shareToken), {
       method: 'PUT',
       body: JSON.stringify(nodeData),
     });
   },
 
-  delete: async (projectId: string, nodeId: string) => {
-    return apiFetch<void>(`/api/projects/${projectId}/nodes/${nodeId}`, {
+  delete: async (projectId: string, nodeId: string, shareToken?: string | null) => {
+    return apiFetch<void>(buildUrl(`/api/projects/${projectId}/nodes/${nodeId}`, shareToken), {
       method: 'DELETE',
     });
   },
@@ -303,7 +382,7 @@ export const nodesApi = {
 
 // Connections API
 export const connectionsApi = {
-  list: async (projectId: string) => {
+  list: async (projectId: string, shareToken?: string | null) => {
     return apiFetch<
       Array<{
         id: string;
@@ -314,7 +393,7 @@ export const connectionsApi = {
         target_handle?: string;
         created_at: string;
       }>
-    >(`/api/projects/${projectId}/connections`);
+    >(buildUrl(`/api/projects/${projectId}/connections`, shareToken));
   },
 
   create: async (projectId: string, connectionData: {
@@ -322,21 +401,21 @@ export const connectionsApi = {
     target_node_id: string;
     source_handle?: string;
     target_handle?: string;
-  }) => {
+  }, shareToken?: string | null) => {
     return apiFetch<{
       id: string;
       source_node_id: string;
       target_node_id: string;
       source_handle?: string;
       target_handle?: string;
-    }>(`/api/projects/${projectId}/connections`, {
+    }>(buildUrl(`/api/projects/${projectId}/connections`, shareToken), {
       method: 'POST',
       body: JSON.stringify(connectionData),
     });
   },
 
-  delete: async (projectId: string, connectionId: string) => {
-    return apiFetch<void>(`/api/projects/${projectId}/connections/${connectionId}`, {
+  delete: async (projectId: string, connectionId: string, shareToken?: string | null) => {
+    return apiFetch<void>(buildUrl(`/api/projects/${projectId}/connections/${connectionId}`, shareToken), {
       method: 'DELETE',
     });
   },

@@ -8,15 +8,118 @@
   font-display: swap;
 }
 
+/* ========================================
+   THEME SYSTEM - Custom Color Variables
+   ======================================== */
+
 :root {
-  --background: #0a0a0a;
-  --foreground: #ededed;
+  /* Base backgrounds */
+  --color-bg-primary: #0a0a0a;
+  --color-bg-secondary: #1a1a1a;
+  --color-bg-tertiary: #1e1e1e;
+  --color-bg-elevated: #252525;
+  --color-bg-hover: #2a2a2a;
+  
+  /* Text colors */
+  --color-text-primary: #ededed;
+  --color-text-secondary: #9ca3af;
+  --color-text-muted: #6b7280;
+  --color-text-inverse: #000000;
+  
+  /* Accent colors */
+  --color-accent-primary: #3b82f6;
+  --color-accent-primary-hover: #60a5fa;
+  --color-accent-primary-muted: rgba(59, 130, 246, 0.1);
+  --color-accent-primary-ring: rgba(59, 130, 246, 0.3);
+  
+  /* Semantic colors */
+  --color-success: #22c55e;
+  --color-success-hover: #4ade80;
+  --color-success-muted: rgba(34, 197, 94, 0.1);
+  --color-success-ring: rgba(34, 197, 94, 0.3);
+  
+  --color-warning: #eab308;
+  --color-warning-hover: #facc15;
+  --color-warning-muted: rgba(234, 179, 8, 0.1);
+  
+  --color-error: #ef4444;
+  --color-error-hover: #f87171;
+  --color-error-muted: rgba(239, 68, 68, 0.1);
+  
+  /* Border colors */
+  --color-border-default: #374151;
+  --color-border-hover: #4b5563;
+  --color-border-selected: #6b7280;
+  
+  /* Legacy variables for compatibility */
+  --background: var(--color-bg-primary);
+  --foreground: var(--color-text-primary);
   --font-melodrama: "Melodrama", serif;
 }
 
+/* ========================================
+   THEME PRESETS
+   ======================================== */
+
+/* Midnight (Default) - Blue accent */
+[data-theme="midnight"], :root {
+  --color-accent-primary: #3b82f6;
+  --color-accent-primary-hover: #60a5fa;
+  --color-accent-primary-muted: rgba(59, 130, 246, 0.1);
+  --color-accent-primary-ring: rgba(59, 130, 246, 0.3);
+}
+
+/* Ocean - Cyan accent */
+[data-theme="ocean"] {
+  --color-accent-primary: #06b6d4;
+  --color-accent-primary-hover: #22d3ee;
+  --color-accent-primary-muted: rgba(6, 182, 212, 0.1);
+  --color-accent-primary-ring: rgba(6, 182, 212, 0.3);
+}
+
+/* Forest - Green accent */
+[data-theme="forest"] {
+  --color-accent-primary: #22c55e;
+  --color-accent-primary-hover: #4ade80;
+  --color-accent-primary-muted: rgba(34, 197, 94, 0.1);
+  --color-accent-primary-ring: rgba(34, 197, 94, 0.3);
+}
+
+/* Sunset - Orange accent */
+[data-theme="sunset"] {
+  --color-accent-primary: #f97316;
+  --color-accent-primary-hover: #fb923c;
+  --color-accent-primary-muted: rgba(249, 115, 22, 0.1);
+  --color-accent-primary-ring: rgba(249, 115, 22, 0.3);
+}
+
+/* Violet - Purple accent */
+[data-theme="violet"] {
+  --color-accent-primary: #8b5cf6;
+  --color-accent-primary-hover: #a78bfa;
+  --color-accent-primary-muted: rgba(139, 92, 246, 0.1);
+  --color-accent-primary-ring: rgba(139, 92, 246, 0.3);
+}
+
+/* Rose - Pink accent */
+[data-theme="rose"] {
+  --color-accent-primary: #ec4899;
+  --color-accent-primary-hover: #f472b6;
+  --color-accent-primary-muted: rgba(236, 72, 153, 0.1);
+  --color-accent-primary-ring: rgba(236, 72, 153, 0.3);
+}
+
+/* Custom theme - uses HSL for dynamic color */
+[data-theme="custom"] {
+  --color-accent-primary: hsl(var(--custom-hue, 220), 90%, 56%);
+  --color-accent-primary-hover: hsl(var(--custom-hue, 220), 90%, 66%);
+  --color-accent-primary-muted: hsla(var(--custom-hue, 220), 90%, 56%, 0.1);
+  --color-accent-primary-ring: hsla(var(--custom-hue, 220), 90%, 56%, 0.3);
+}
+
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--color-bg-primary);
+  --color-foreground: var(--color-text-primary);
   --font-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-serif: "Playfair Display", Georgia, Cambria, "Times New Roman", Times, serif;
   --font-melodrama: var(--font-melodrama);
@@ -24,8 +127,8 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: var(--color-bg-primary);
+    --foreground: var(--color-text-primary);
   }
 }
 
@@ -57,4 +160,41 @@ body {
     opacity: 0.3; 
     transform: scale(1.02) rotate(0.3deg);
   }
+}
+
+/* ========================================
+   FORM ELEMENTS
+   ======================================== */
+
+/* Range slider thumb styling */
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--color-text-primary);
+  cursor: pointer;
+  border: 2px solid var(--color-bg-primary);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--color-text-primary);
+  cursor: pointer;
+  border: 2px solid var(--color-bg-primary);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s ease;
+}
+
+input[type="range"]::-moz-range-thumb:hover {
+  transform: scale(1.1);
 }
