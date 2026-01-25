@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
 import {
   ReactFlow,
   useNodesState,
@@ -31,7 +31,11 @@ interface ReactFlowCanvasProps {
   projectId: string;
 }
 
-export default function ReactFlowCanvas({ projectId }: ReactFlowCanvasProps) {
+export interface ReactFlowCanvasRef {
+  addNode: (type: string) => void;
+}
+
+const ReactFlowCanvas = forwardRef<ReactFlowCanvasRef, ReactFlowCanvasProps>(({ projectId }, ref) => {
   const { isAuthenticated } = useAuth();
 
   // React Flow state (UI)
@@ -501,10 +505,12 @@ export default function ReactFlowCanvas({ projectId }: ReactFlowCanvasProps) {
   // Handle node creation
   const handleAddNode = async (type: 'image' | 'prompt' | 'video' | 'container' | 'ratio' | 'scene' | 'extension') => {
     try {
+      // Calculate a random position offset to avoid stacking
+      const randomOffset = () => Math.floor(Math.random() * 200) + 50;
       const newNode = await nodesApi.create(projectId, {
         type,
-        position_x: 100,
-        position_y: 100,
+        position_x: 100 + randomOffset(),
+        position_y: 100 + randomOffset(),
         data: {},
       });
 
@@ -514,6 +520,13 @@ export default function ReactFlowCanvas({ projectId }: ReactFlowCanvasProps) {
       console.error('Failed to create node:', error);
     }
   };
+
+  // Expose addNode method to parent components via ref
+  useImperativeHandle(ref, () => ({
+    addNode: (type: string) => {
+      handleAddNode(type as 'image' | 'prompt' | 'video' | 'container' | 'ratio' | 'scene' | 'extension');
+    },
+  }), [handleAddNode]);
 
   // Handle node update
   const handleNodeUpdate = async (nodeId: string, data: Record<string, any>) => {
@@ -788,4 +801,8 @@ export default function ReactFlowCanvas({ projectId }: ReactFlowCanvasProps) {
       </div>
     </div>
   );
-}
+});
+
+ReactFlowCanvas.displayName = 'ReactFlowCanvas';
+
+export default ReactFlowCanvas;
