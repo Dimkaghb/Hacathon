@@ -264,6 +264,8 @@ async def extend_video(
         prompt=request.prompt,
         seed=request.seed,
         extension_count=request.extension_count,
+        veo_video_uri=request.veo_video_uri,
+        veo_video_name=request.veo_video_name,
     )
 
     return JobStatusResponse(

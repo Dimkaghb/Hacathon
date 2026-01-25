@@ -60,6 +60,8 @@ class VideoExtendRequest(BaseModel):
     prompt: str
     seed: Optional[int] = None
     extension_count: int = 1  # Track extension number (max 20)
+    veo_video_uri: Optional[str] = None  # Original Veo video URI for extension
+    veo_video_name: Optional[str] = None  # Original Veo file name for extension
 
 
 class JobStatusResponse(BaseModel):
