@@ -148,20 +148,21 @@ export default function ImageNodeRF({ data, selected }: NodeProps) {
 
       {/* Node Content */}
       <div className="rf-node-content">
-        <div className="space-y-2">
+        <div className="space-y-3">
+          {/* Image Upload Area */}
           {imageUrl ? (
             <div className="relative group">
               <img
                 src={imageUrl}
                 alt="Node image"
-                className="w-full h-32 object-cover rounded border border-gray-700"
+                className="w-full h-40 object-cover rounded border border-[#374151]"
               />
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   data.onUpdate?.({ image_url: '' });
                 }}
-                className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm text-white text-xs px-3 py-1.5 rounded opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-red-500/80"
               >
                 Remove
               </button>
@@ -172,9 +173,24 @@ export default function ImageNodeRF({ data, selected }: NodeProps) {
                 e.stopPropagation();
                 fileInputRef.current?.click();
               }}
-              className="w-full h-32 border-2 border-dashed border-gray-600 rounded flex items-center justify-center cursor-pointer hover:border-gray-500 hover:bg-[#151515] transition-colors"
+              className="w-full h-40 border-2 border-dashed border-[#374151] rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-[#3b82f6] hover:bg-[#0a0a0a]/30 transition-all duration-200 group"
             >
-              <span className="text-gray-400 text-sm">Click to upload image</span>
+              <svg 
+                className="w-8 h-8 mb-2 text-[#6b7280] group-hover:text-[#3b82f6] transition-colors" 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                  strokeWidth={1.5} 
+                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" 
+                />
+              </svg>
+              <span className="text-[#9ca3af] text-sm font-light tracking-wide group-hover:text-[#d1d9e6] transition-colors">
+                Upload Image
+              </span>
             </div>
           )}
           <input
@@ -184,28 +200,26 @@ export default function ImageNodeRF({ data, selected }: NodeProps) {
             className="hidden"
             onChange={handleFileSelect}
           />
+
+          {/* Description Input */}
+          <div>
+            <input
+              type="text"
+              placeholder="Add description..."
+              value={node.description || ''}
+              onChange={(e) => {
+                e.stopPropagation();
+                data.onUpdate?.({ description: e.target.value });
+              }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full px-3 py-2 bg-[#0a0a0a]/50 border border-[#374151] rounded-lg text-sm text-[#d1d9e6] placeholder-[#6b7280] focus:outline-none focus:border-[#3b82f6] focus:ring-1 focus:ring-[#3b82f6]/20 transition-all duration-200"
+            />
+          </div>
+
+          {/* Status Messages - Only show uploading spinner */}
           {(status === 'processing' || uploading) && (
-            <div className="text-xs text-yellow-400 flex items-center gap-2">
-              <div className="w-3 h-3 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin"></div>
-              <span>Uploading...</span>
-            </div>
-          )}
-          {status === 'failed' && errorMessage && (
-            <div className="text-xs text-red-400 flex items-center gap-1">
-              <span>⚠️</span>
-              <span>{errorMessage}</span>
-            </div>
-          )}
-          {imageUrl && node._local_preview && (
-            <div className="text-xs text-yellow-400 flex items-center gap-1">
-              <span>ℹ️</span>
-              <span>Local preview (not uploaded)</span>
-            </div>
-          )}
-          {imageUrl && !node._local_preview && (
-            <div className="text-xs text-green-400 flex items-center gap-1">
-              <span>✓</span>
-              <span>Uploaded successfully</span>
+            <div className="flex items-center justify-center py-1">
+              <div className="w-3 h-3 border-2 border-[#6b7280] border-t-transparent rounded-full animate-spin"></div>
             </div>
           )}
         </div>

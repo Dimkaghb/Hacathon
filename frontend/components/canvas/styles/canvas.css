@@ -15,7 +15,7 @@
 /* Node base styles */
 .rf-node {
   background: #1e1e1e;
-  border: 2px solid #374151;
+  border: 1px solid #374151;
   border-radius: 8px;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
   min-width: 240px;
@@ -29,8 +29,8 @@
 }
 
 .rf-node.selected {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2), 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+  border-color: #6b7280;
+  box-shadow: 0 0 0 2px rgba(107, 114, 128, 0.2), 0 4px 6px -1px rgba(0, 0, 0, 0.3);
 }
 
 /* Node header */
@@ -140,32 +140,18 @@
   stroke-width: 3px;
 }
 
-/* Node type colors */
-.rf-image-node {
-  border-color: #3b82f6;
-}
-
-.rf-image-node.selected {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2), 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-}
-
-.rf-prompt-node {
-  border-color: #22c55e;
-}
-
-.rf-prompt-node.selected {
-  border-color: #22c55e;
-  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2), 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-}
-
+/* Node type colors - uniform styling */
+.rf-image-node,
+.rf-prompt-node,
 .rf-video-node {
-  border-color: #a855f7;
+  border-color: #374151;
 }
 
+.rf-image-node.selected,
+.rf-prompt-node.selected,
 .rf-video-node.selected {
-  border-color: #a855f7;
-  box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.2), 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+  border-color: #6b7280;
+  box-shadow: 0 0 0 2px rgba(107, 114, 128, 0.2), 0 4px 6px -1px rgba(0, 0, 0, 0.3);
 }
 
 /* Controls styling */

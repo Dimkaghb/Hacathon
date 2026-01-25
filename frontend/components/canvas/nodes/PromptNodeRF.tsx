@@ -38,20 +38,13 @@ export default function PromptNodeRF({ data, selected }: NodeProps) {
 
       {/* Node Content */}
       <div className="rf-node-content">
-        <div className="space-y-2">
-          <textarea
-            value={prompt}
-            onChange={(e) => handlePromptChange(e.target.value)}
-            placeholder="Enter your prompt..."
-            className="w-full h-24 px-3 py-2 bg-[#151515] text-white text-sm rounded border border-gray-700 focus:border-blue-500 focus:outline-none resize-none placeholder:text-gray-500"
-            onClick={(e) => e.stopPropagation()}
-          />
-          {prompt && (
-            <div className="text-xs text-gray-500">
-              {prompt.length} characters
-            </div>
-          )}
-        </div>
+        <textarea
+          value={prompt}
+          onChange={(e) => handlePromptChange(e.target.value)}
+          placeholder="Enter your prompt..."
+          className="w-full h-24 px-3 py-2 bg-[#0a0a0a]/50 border border-[#374151] rounded-lg text-sm text-[#d1d9e6] placeholder-[#6b7280] focus:outline-none focus:border-[#6b7280] focus:ring-1 focus:ring-[#6b7280]/20 transition-all duration-200 resize-none"
+          onClick={(e) => e.stopPropagation()}
+        />
       </div>
     </div>
   );
