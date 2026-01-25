@@ -1,72 +1,80 @@
 /* Main canvas */
 .framer-canvas {
-  background: #1a1a1a;
+  background: #0f0f0f;
 }
 
 /* React Flow specific overrides */
 .react-flow__viewport {
-  background: #1a1a1a;
+  background: #0f0f0f;
 }
 
 .react-flow__attribution {
   display: none;
 }
 
-/* Node base styles */
+/* Node base styles - Minimalistic unified block */
 .rf-node {
-  background: #1e1e1e;
-  border: 1px solid #374151;
-  border-radius: 8px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-  min-width: 240px;
-  max-width: 320px;
-  transition: all 0.15s ease;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 12px;
+  min-width: 220px;
+  max-width: 280px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
   cursor: grab;
+  position: relative;
 }
 
 .rf-node:active {
   cursor: grabbing;
 }
 
-.rf-node.selected {
-  border-color: #6b7280;
-  box-shadow: 0 0 0 2px rgba(107, 114, 128, 0.2), 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+.rf-node:hover {
+  border-color: #3a3a3a;
 }
 
-/* Node header */
+.rf-node.selected {
+  border-color: #4a4a4a;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+/* Node header - compact, no background */
 .rf-node-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
-  background: #252525;
-  border-bottom: 1px solid #374151;
-  border-radius: 6px 6px 0 0;
+  gap: 6px;
+  padding: 10px 14px 6px 14px;
 }
 
 .rf-node-title {
   flex: 1;
-  font-size: 14px;
-  font-weight: 600;
-  color: white;
-  text-transform: capitalize;
+  font-size: 11px;
+  font-weight: 500;
+  color: #808080;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .rf-node-delete {
   background: none;
   border: none;
-  color: #9ca3af;
-  font-size: 20px;
+  color: #4a4a4a;
+  font-size: 16px;
   line-height: 1;
   cursor: pointer;
   padding: 0;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 4px;
   transition: all 0.15s ease;
+  opacity: 0;
+}
+
+.rf-node:hover .rf-node-delete,
+.rf-node.selected .rf-node-delete {
+  opacity: 1;
 }
 
 .rf-node-delete:hover {
@@ -76,25 +84,25 @@
 
 /* Node content */
 .rf-node-content {
-  padding: 16px;
+  padding: 6px 14px 14px 14px;
 }
 
-/* Status indicator */
+/* Status indicator - subtle dot */
 .rf-node-status-indicator {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  background: #6b7280;
+  background: #3a3a3a;
   flex-shrink: 0;
 }
 
 .rf-node-status-indicator[data-status="processing"] {
-  background: #eab308;
-  animation: pulse 2s infinite;
+  background: #f59e0b;
+  animation: pulse 1.5s ease-in-out infinite;
 }
 
 .rf-node-status-indicator[data-status="completed"] {
-  background: #22c55e;
+  background: #10b981;
 }
 
 .rf-node-status-indicator[data-status="failed"] {
@@ -104,39 +112,70 @@
 @keyframes pulse {
   0%, 100% {
     opacity: 1;
+    transform: scale(1);
   }
   50% {
     opacity: 0.5;
+    transform: scale(0.9);
   }
 }
 
-/* Handles */
+/* Handles - Hidden by default, show on hover as + button */
 .rf-handle {
-  width: 12px !important;
-  height: 12px !important;
-  border: 2px solid #1e1e1e !important;
-  background: #3b82f6 !important;
+  width: 16px !important;
+  height: 16px !important;
+  border: none !important;
+  background: #2a2a2a !important;
   border-radius: 50% !important;
-  /* Remove transitions that cause shaking */
-  transition: background-color 0.15s ease, border-color 0.15s ease !important;
-  /* Prevent layout shifts */
-  transform: translate(-50%, -50%) !important;
-  will-change: background-color, border-color;
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease, background-color 0.15s ease !important;
+  transform: translate(-50%, -50%) scale(0.8) !important;
+  will-change: opacity, transform;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.rf-handle::after {
+  content: '+';
+  color: #808080;
+  font-size: 14px;
+  font-weight: 300;
+  line-height: 1;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.rf-node:hover .rf-handle {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1) !important;
 }
 
 .rf-handle:hover {
-  /* Use box-shadow instead of transform to avoid shaking */
-  background: #60a5fa !important;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+  background: #3a3a3a !important;
+}
+
+.rf-handle:hover::after {
+  color: #ffffff;
 }
 
 .rf-handle-source {
-  background: #22c55e !important;
+  background: #2a2a2a !important;
 }
 
 .rf-handle-source:hover {
-  background: #4ade80 !important;
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.3);
+  background: #3a3a3a !important;
+}
+
+/* When connecting, make handles visible */
+.react-flow__handle.connecting,
+.react-flow__handle.connectingfrom,
+.react-flow__handle.connectingto {
+  opacity: 1 !important;
+  transform: translate(-50%, -50%) scale(1) !important;
+  background: #4a4a4a !important;
 }
 
 /* Ensure handles don't move when connecting */
@@ -144,20 +183,17 @@
   pointer-events: all;
 }
 
-.react-flow__handle.connecting {
-  background: #60a5fa !important;
-}
-
-/* Edges */
+/* Edges - subtle */
 .react-flow__edge-path {
-  stroke: #3b82f6;
-  stroke-width: 2px;
+  stroke: #3a3a3a;
+  stroke-width: 1.5px;
   transition: stroke 0.15s ease, stroke-width 0.15s ease;
 }
 
-.react-flow__edge.selected .react-flow__edge-path {
-  stroke: #60a5fa;
-  stroke-width: 3px;
+.react-flow__edge.selected .react-flow__edge-path,
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke: #5a5a5a;
+  stroke-width: 2px;
 }
 
 /* Node type colors - uniform styling */
@@ -168,7 +204,7 @@
 .rf-ratio-node,
 .rf-scene-node,
 .rf-extension-node {
-  border-color: #374151;
+  border-color: #2a2a2a;
 }
 
 .rf-image-node.selected,
@@ -178,51 +214,220 @@
 .rf-ratio-node.selected,
 .rf-scene-node.selected,
 .rf-extension-node.selected {
-  border-color: #6b7280;
-  box-shadow: 0 0 0 2px rgba(107, 114, 128, 0.2), 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+  border-color: #4a4a4a;
 }
 
 /* Controls styling */
 .react-flow__controls {
-  background: #2a2a2a;
-  border: 1px solid #374151;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
   border-radius: 8px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+  box-shadow: none;
 }
 
 .react-flow__controls-button {
-  background: #2a2a2a;
-  border-bottom: 1px solid #374151;
-  color: white;
-  transition: background 0.15s ease;
+  background: #1a1a1a;
+  border-bottom: 1px solid #2a2a2a;
+  color: #808080;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .react-flow__controls-button:hover {
-  background: #374151;
+  background: #2a2a2a;
+  color: white;
 }
 
 .react-flow__controls-button svg {
-  fill: white;
+  fill: currentColor;
 }
 
 /* MiniMap styling */
 .react-flow__minimap {
-  background: #1e1e1e;
-  border: 1px solid #374151;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
   border-radius: 8px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+  box-shadow: none;
 }
 
 .react-flow__minimap-mask {
-  fill: rgba(59, 130, 246, 0.1);
-  stroke: #3b82f6;
+  fill: rgba(255, 255, 255, 0.03);
+  stroke: #3a3a3a;
 }
 
 .react-flow__minimap-node {
-  fill: #374151;
+  fill: #2a2a2a;
 }
 
 /* Panel styling */
 .react-flow__panel {
-  color: white;
+  color: #808080;
+}
+
+/* Form elements - minimal styling */
+.rf-input {
+  width: 100%;
+  padding: 8px 10px;
+  background: #141414;
+  border: 1px solid #2a2a2a;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #e0e0e0;
+  transition: border-color 0.15s ease;
+}
+
+.rf-input:focus {
+  outline: none;
+  border-color: #3a3a3a;
+}
+
+.rf-input::placeholder {
+  color: #4a4a4a;
+}
+
+.rf-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  background: #141414;
+  border: 1px solid #2a2a2a;
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #e0e0e0;
+  resize: none;
+  transition: border-color 0.15s ease;
+}
+
+.rf-textarea:focus {
+  outline: none;
+  border-color: #3a3a3a;
+}
+
+.rf-textarea::placeholder {
+  color: #4a4a4a;
+}
+
+.rf-select {
+  width: 100%;
+  padding: 8px 10px;
+  background: #141414;
+  border: 1px solid #2a2a2a;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #e0e0e0;
+  transition: border-color 0.15s ease;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23808080' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+
+.rf-select:focus {
+  outline: none;
+  border-color: #3a3a3a;
+}
+
+.rf-select option {
+  background: #1a1a1a;
+  color: #e0e0e0;
+}
+
+.rf-button {
+  width: 100%;
+  padding: 8px 12px;
+  background: #2a2a2a;
+  border: none;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #e0e0e0;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.rf-button:hover:not(:disabled) {
+  background: #3a3a3a;
+}
+
+.rf-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.rf-button-primary {
+  background: #ffffff;
+  color: #0f0f0f;
+}
+
+.rf-button-primary:hover:not(:disabled) {
+  background: #e0e0e0;
+}
+
+/* Label styling */
+.rf-label {
+  font-size: 10px;
+  color: #606060;
+  margin-bottom: 4px;
+  display: block;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* Badge styling */
+.rf-badge {
+  font-size: 9px;
+  padding: 2px 6px;
+  background: #2a2a2a;
+  border-radius: 4px;
+  color: #808080;
+}
+
+/* Connection status dot */
+.rf-status-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+/* Progress bar */
+.rf-progress {
+  width: 100%;
+  height: 2px;
+  background: #2a2a2a;
+  border-radius: 1px;
+  overflow: hidden;
+}
+
+.rf-progress-bar {
+  height: 100%;
+  background: #808080;
+  border-radius: 1px;
+  transition: width 0.3s ease;
+}
+
+/* Message boxes */
+.rf-message {
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 10px;
+}
+
+.rf-message-info {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  color: #808080;
+}
+
+.rf-message-warning {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+}
+
+.rf-message-error {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #ef4444;
 }
