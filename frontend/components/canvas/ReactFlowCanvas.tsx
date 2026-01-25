@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   ReactFlow,
   useNodesState,
@@ -627,13 +627,6 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
     }
   };
 
-  // Expose addNode method to parent components via ref
-  useImperativeHandle(ref, () => ({
-    addNode: (type: string) => {
-      handleAddNode(type as 'image' | 'prompt' | 'video' | 'container' | 'ratio' | 'scene' | 'extension');
-    },
-  }), [handleAddNode]);
-
   // Handle node update
   const handleNodeUpdate = async (nodeId: string, data: Record<string, any>) => {
     try {
@@ -1011,8 +1004,4 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
       </div>
     </div>
   );
-});
-
-ReactFlowCanvas.displayName = 'ReactFlowCanvas';
-
-export default ReactFlowCanvas;
+}

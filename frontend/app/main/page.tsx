@@ -214,6 +214,6 @@ export default function MainPage() {
           </>
         )}
       </div>
-    </FigmaSidebar>
+    </div>
   );
 }
