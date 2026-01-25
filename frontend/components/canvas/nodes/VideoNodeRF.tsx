@@ -13,6 +13,14 @@ export default function VideoNodeRF({ data, selected }: CustomNodeProps) {
   // Connected data passed from parent
   const connectedPrompt = data.connectedPrompt || '';
   const connectedImageUrl = data.connectedImageUrl || '';
+  
+  // Debug log
+  console.log('[VideoNodeRF] Connected data:', { 
+    connectedPrompt: connectedPrompt?.substring(0, 30), 
+    connectedImageUrl: connectedImageUrl?.substring(0, 30),
+    hasPrompt: !!connectedPrompt?.trim(),
+    hasImage: !!connectedImageUrl
+  });
 
   // Settings - duration only, resolution fixed to 720p
   const [duration, setDuration] = useState(node.duration || 8);
@@ -26,8 +34,18 @@ export default function VideoNodeRF({ data, selected }: CustomNodeProps) {
     }
   };
 
-  // Check if video can be extended
+  // Check if video can be extended (has completed video with Veo URI)
+  const hasVideo = !!node.video_url;
   const canBeExtended = !!(node.video_url && (node.veo_video_uri || node.veo_video_name));
+  
+  // Debug log for extension capability
+  console.log('[VideoNodeRF] Extension check:', {
+    video_url: node.video_url?.substring(0, 50),
+    veo_video_uri: node.veo_video_uri,
+    veo_video_name: node.veo_video_name,
+    hasVideo,
+    canBeExtended
+  });
 
   return (
     <div className={`rf-node rf-video-node ${selected ? 'selected' : ''}`}>
@@ -47,16 +65,18 @@ export default function VideoNodeRF({ data, selected }: CustomNodeProps) {
         style={{ top: '70%' }}
       />
 
-      {/* Output Handle - for connecting to Extension nodes */}
-      {canBeExtended && (
-        <Handle
-          type="source"
-          position={Position.Right}
-          id="video-output"
-          className="rf-handle rf-handle-source"
-          style={{ top: '50%' }}
-        />
-      )}
+      {/* Output Handle - always visible for workflow setup, styled based on video availability */}
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="video-output"
+        className={`rf-handle ${hasVideo ? 'rf-handle-source' : ''}`}
+        style={{ 
+          top: '50%',
+          background: hasVideo ? '#22c55e' : '#374151',
+          opacity: hasVideo ? 1 : 0.5
+        }}
+      />
 
       {/* Node Header */}
       <div className="rf-node-header">
@@ -70,13 +90,19 @@ export default function VideoNodeRF({ data, selected }: CustomNodeProps) {
       <div className="rf-node-content">
         {/* Connected Inputs Status */}
         <div className="space-y-1 mb-3">
-          <div className={`flex items-center gap-1.5 text-[10px] ${connectedPrompt?.trim() ? 'text-[#808080]' : 'text-[#3a3a3a]'}`}>
-            <span className="rf-status-dot" />
-            <span>Prompt{connectedPrompt?.trim() ? '' : ' (required)'}</span>
+          <div className={`flex items-center gap-1.5 text-[10px] ${connectedPrompt?.trim() ? 'text-[#22c55e]' : 'text-[#3a3a3a]'}`}>
+            <span 
+              className="rf-status-dot" 
+              style={{ background: connectedPrompt?.trim() ? '#22c55e' : '#374151' }}
+            />
+            <span>Prompt{connectedPrompt?.trim() ? ' ✓' : ' (required)'}</span>
           </div>
-          <div className={`flex items-center gap-1.5 text-[10px] ${connectedImageUrl ? 'text-[#808080]' : 'text-[#3a3a3a]'}`}>
-            <span className="rf-status-dot" />
-            <span>Image{connectedImageUrl ? '' : ' (optional)'}</span>
+          <div className={`flex items-center gap-1.5 text-[10px] ${connectedImageUrl ? 'text-[#22c55e]' : 'text-[#3a3a3a]'}`}>
+            <span 
+              className="rf-status-dot" 
+              style={{ background: connectedImageUrl ? '#22c55e' : '#374151' }}
+            />
+            <span>Image{connectedImageUrl ? ' ✓' : ' (optional)'}</span>
           </div>
         </div>
 

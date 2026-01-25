@@ -25,7 +25,16 @@ export default function ExtensionNodeRF({ data, selected }: CustomNodeProps) {
   );
 
   // Check if this extension node has completed video
+  const hasVideo = !!node.video_url;
   const hasCompletedVideo = !!(node.video_url && (node.veo_video_uri || node.veo_video_name));
+
+  // Debug log
+  console.log('[ExtensionNodeRF] Data:', {
+    connectedVideo: connectedVideo?.video_url?.substring(0, 30),
+    connectedPrompt: connectedPrompt?.substring(0, 30),
+    hasVideo,
+    canExtend
+  });
 
   const handleExtend = () => {
     if (canExtend) {
@@ -51,16 +60,18 @@ export default function ExtensionNodeRF({ data, selected }: CustomNodeProps) {
         style={{ top: '70%' }}
       />
 
-      {/* Output Handle - for chaining extensions */}
-      {hasCompletedVideo && (
-        <Handle
-          type="source"
-          position={Position.Right}
-          id="video-output"
-          className="rf-handle rf-handle-source"
-          style={{ top: '50%' }}
-        />
-      )}
+      {/* Output Handle - always visible for chaining, styled based on video availability */}
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="video-output"
+        className={`rf-handle ${hasVideo ? 'rf-handle-source' : ''}`}
+        style={{ 
+          top: '50%',
+          background: hasVideo ? '#22c55e' : '#374151',
+          opacity: hasVideo ? 1 : 0.5
+        }}
+      />
 
       {/* Node Header */}
       <div className="rf-node-header">
@@ -74,13 +85,19 @@ export default function ExtensionNodeRF({ data, selected }: CustomNodeProps) {
       <div className="rf-node-content">
         {/* Connected Inputs Status */}
         <div className="space-y-1 mb-3">
-          <div className={`flex items-center gap-1.5 text-[10px] ${connectedVideo?.video_url ? 'text-[#808080]' : 'text-[#3a3a3a]'}`}>
-            <span className="rf-status-dot" />
-            <span>Video{connectedVideo?.video_url ? '' : ' (required)'}</span>
+          <div className={`flex items-center gap-1.5 text-[10px] ${connectedVideo?.video_url ? 'text-[#22c55e]' : 'text-[#3a3a3a]'}`}>
+            <span 
+              className="rf-status-dot" 
+              style={{ background: connectedVideo?.video_url ? '#22c55e' : '#374151' }}
+            />
+            <span>Video{connectedVideo?.video_url ? ' ✓' : ' (required)'}</span>
           </div>
-          <div className={`flex items-center gap-1.5 text-[10px] ${connectedPrompt?.trim() ? 'text-[#808080]' : 'text-[#3a3a3a]'}`}>
-            <span className="rf-status-dot" />
-            <span>Prompt{connectedPrompt?.trim() ? '' : ' (required)'}</span>
+          <div className={`flex items-center gap-1.5 text-[10px] ${connectedPrompt?.trim() ? 'text-[#22c55e]' : 'text-[#3a3a3a]'}`}>
+            <span 
+              className="rf-status-dot" 
+              style={{ background: connectedPrompt?.trim() ? '#22c55e' : '#374151' }}
+            />
+            <span>Prompt{connectedPrompt?.trim() ? ' ✓' : ' (required)'}</span>
           </div>
         </div>
 
