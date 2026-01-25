@@ -68,87 +68,81 @@ export default function VideoNodeRF({ data, selected }: CustomNodeProps) {
 
       {/* Node Content */}
       <div className="rf-node-content">
-        <div className="space-y-3">
-          {/* Connected Inputs Status - minimal */}
-          <div className="space-y-1">
-            <div className={`flex items-center gap-2 text-[10px] ${connectedPrompt?.trim() ? 'text-[#808080]' : 'text-[#3a3a3a]'}`}>
-              <span className="rf-status-dot" />
-              <span>Prompt {connectedPrompt?.trim() ? '' : '(required)'}</span>
-            </div>
-            <div className={`flex items-center gap-2 text-[10px] ${connectedImageUrl ? 'text-[#808080]' : 'text-[#3a3a3a]'}`}>
-              <span className="rf-status-dot" />
-              <span>Image {connectedImageUrl ? '' : '(optional)'}</span>
-            </div>
+        {/* Connected Inputs Status */}
+        <div className="space-y-1 mb-3">
+          <div className={`flex items-center gap-1.5 text-[10px] ${connectedPrompt?.trim() ? 'text-[#808080]' : 'text-[#3a3a3a]'}`}>
+            <span className="rf-status-dot" />
+            <span>Prompt{connectedPrompt?.trim() ? '' : ' (required)'}</span>
           </div>
-
-          {/* Duration Setting */}
-          <div>
-            <label className="rf-label">Duration</label>
-            <input
-              type="number"
-              min="1"
-              max="60"
-              value={duration}
-              onChange={(e) => {
-                const val = parseInt(e.target.value) || 8;
-                setDuration(val);
-                data.onUpdate?.({ duration: val });
-              }}
-              className="rf-input"
-              onClick={(e) => e.stopPropagation()}
-            />
+          <div className={`flex items-center gap-1.5 text-[10px] ${connectedImageUrl ? 'text-[#808080]' : 'text-[#3a3a3a]'}`}>
+            <span className="rf-status-dot" />
+            <span>Image{connectedImageUrl ? '' : ' (optional)'}</span>
           </div>
-
-          {/* Progress Display */}
-          {status === 'processing' && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 border border-[#4a4a4a] border-t-transparent rounded-full animate-spin" />
-                <span className="text-[10px] text-[#606060]">
-                  {node.progress_message || 'Generating...'}
-                </span>
-              </div>
-              {typeof node.progress === 'number' && node.progress > 0 && (
-                <div className="rf-progress">
-                  <div
-                    className="rf-progress-bar"
-                    style={{ width: `${node.progress}%` }}
-                  />
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Error Display */}
-          {status === 'failed' && errorMessage && (
-            <div className="rf-message rf-message-error">
-              {errorMessage}
-            </div>
-          )}
-
-          {/* Generate Button */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleGenerate();
-            }}
-            disabled={!canGenerate || status === 'processing'}
-            className={`rf-button ${canGenerate && status !== 'processing' ? 'rf-button-primary' : ''}`}
-          >
-            {status === 'processing' ? 'Generating...' : status === 'failed' ? 'Retry' : 'Generate'}
-          </button>
-
-          {/* Video Display */}
-          {node.video_url && !node.video_url.startsWith('gs://') && (
-            <video
-              src={node.video_url}
-              controls
-              preload="metadata"
-              className="w-full rounded-md max-h-36"
-              onClick={(e) => e.stopPropagation()}
-            />
-          )}
         </div>
+
+        {/* Duration Setting */}
+        <div className="mb-3">
+          <label className="rf-label">Duration (s)</label>
+          <input
+            type="number"
+            min="1"
+            max="60"
+            value={duration}
+            onChange={(e) => {
+              const val = parseInt(e.target.value) || 8;
+              setDuration(val);
+              data.onUpdate?.({ duration: val });
+            }}
+            className="rf-input"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+
+        {/* Progress Display */}
+        {status === 'processing' && (
+          <div className="mb-3">
+            <div className="flex items-center gap-2 mb-1.5">
+              <div className="w-3 h-3 border-2 border-[#3a3a3a] border-t-[#808080] rounded-full animate-spin" />
+              <span className="text-[10px] text-[#606060]">
+                {node.progress_message || 'Generating...'}
+              </span>
+            </div>
+            {typeof node.progress === 'number' && node.progress > 0 && (
+              <div className="rf-progress">
+                <div className="rf-progress-bar" style={{ width: `${node.progress}%` }} />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Error Display */}
+        {status === 'failed' && errorMessage && (
+          <div className="rf-message rf-message-error mb-3">{errorMessage}</div>
+        )}
+
+        {/* Generate Button */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleGenerate();
+          }}
+          disabled={!canGenerate || status === 'processing'}
+          className={`rf-button ${canGenerate && status !== 'processing' ? 'rf-button-primary' : ''}`}
+        >
+          {status === 'processing' ? 'Generating...' : status === 'failed' ? 'Retry' : 'Generate'}
+        </button>
+
+        {/* Video Display */}
+        {node.video_url && !node.video_url.startsWith('gs://') && (
+          <video
+            src={node.video_url}
+            controls
+            preload="metadata"
+            className="w-full rounded-md mt-3"
+            style={{ maxHeight: '140px' }}
+            onClick={(e) => e.stopPropagation()}
+          />
+        )}
       </div>
     </div>
   );

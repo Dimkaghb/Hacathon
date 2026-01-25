@@ -72,87 +72,74 @@ export default function ExtensionNodeRF({ data, selected }: CustomNodeProps) {
 
       {/* Node Content */}
       <div className="rf-node-content">
-        <div className="space-y-3">
-          {/* Connected Inputs Status */}
-          <div className="space-y-1">
-            <div className={`flex items-center gap-2 text-[10px] ${connectedVideo?.video_url ? 'text-[#808080]' : 'text-[#3a3a3a]'}`}>
-              <span className="rf-status-dot" />
-              <span>Video {connectedVideo?.video_url ? '' : '(required)'}</span>
-            </div>
-            <div className={`flex items-center gap-2 text-[10px] ${connectedPrompt?.trim() ? 'text-[#808080]' : 'text-[#3a3a3a]'}`}>
-              <span className="rf-status-dot" />
-              <span>Prompt {connectedPrompt?.trim() ? '' : '(required)'}</span>
-            </div>
+        {/* Connected Inputs Status */}
+        <div className="space-y-1 mb-3">
+          <div className={`flex items-center gap-1.5 text-[10px] ${connectedVideo?.video_url ? 'text-[#808080]' : 'text-[#3a3a3a]'}`}>
+            <span className="rf-status-dot" />
+            <span>Video{connectedVideo?.video_url ? '' : ' (required)'}</span>
           </div>
-
-          {/* Resolution Notice */}
-          <div className="text-[9px] text-[#4a4a4a]">
-            Resolution locked at 720p for extensions
+          <div className={`flex items-center gap-1.5 text-[10px] ${connectedPrompt?.trim() ? 'text-[#808080]' : 'text-[#3a3a3a]'}`}>
+            <span className="rf-status-dot" />
+            <span>Prompt{connectedPrompt?.trim() ? '' : ' (required)'}</span>
           </div>
-
-          {/* Extension Limit Warning */}
-          {remainingExtensions <= 5 && remainingExtensions > 0 && (
-            <div className="rf-message rf-message-warning">
-              {remainingExtensions} extension{remainingExtensions !== 1 ? 's' : ''} left
-            </div>
-          )}
-
-          {remainingExtensions <= 0 && connectedVideo && (
-            <div className="rf-message rf-message-error">
-              Max extensions reached
-            </div>
-          )}
-
-          {/* Progress Display */}
-          {status === 'processing' && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 border border-[#4a4a4a] border-t-transparent rounded-full animate-spin" />
-                <span className="text-[10px] text-[#606060]">
-                  {node.progress_message || 'Extending...'}
-                </span>
-              </div>
-              {typeof node.progress === 'number' && node.progress > 0 && (
-                <div className="rf-progress">
-                  <div
-                    className="rf-progress-bar"
-                    style={{ width: `${node.progress}%` }}
-                  />
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Error Display */}
-          {status === 'failed' && errorMessage && (
-            <div className="rf-message rf-message-error">
-              {errorMessage}
-            </div>
-          )}
-
-          {/* Extend Button */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleExtend();
-            }}
-            disabled={!canExtend || status === 'processing'}
-            className={`rf-button ${canExtend && status !== 'processing' ? 'rf-button-primary' : ''}`}
-          >
-            {status === 'processing' ? 'Extending...' : status === 'failed' ? 'Retry' : 'Extend'}
-          </button>
-
-          {/* Video Display */}
-          {node.video_url && !node.video_url.startsWith('gs://') && (
-            <video
-              src={node.video_url}
-              controls
-              preload="metadata"
-              className="w-full rounded-md max-h-36"
-              onClick={(e) => e.stopPropagation()}
-            />
-          )}
         </div>
+
+        {/* Extension Limit Warning */}
+        {remainingExtensions <= 5 && remainingExtensions > 0 && (
+          <div className="rf-message rf-message-warning mb-3">
+            {remainingExtensions} extension{remainingExtensions !== 1 ? 's' : ''} left
+          </div>
+        )}
+
+        {remainingExtensions <= 0 && connectedVideo && (
+          <div className="rf-message rf-message-error mb-3">Max extensions reached</div>
+        )}
+
+        {/* Progress Display */}
+        {status === 'processing' && (
+          <div className="mb-3">
+            <div className="flex items-center gap-2 mb-1.5">
+              <div className="w-3 h-3 border-2 border-[#3a3a3a] border-t-[#808080] rounded-full animate-spin" />
+              <span className="text-[10px] text-[#606060]">
+                {node.progress_message || 'Extending...'}
+              </span>
+            </div>
+            {typeof node.progress === 'number' && node.progress > 0 && (
+              <div className="rf-progress">
+                <div className="rf-progress-bar" style={{ width: `${node.progress}%` }} />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Error Display */}
+        {status === 'failed' && errorMessage && (
+          <div className="rf-message rf-message-error mb-3">{errorMessage}</div>
+        )}
+
+        {/* Extend Button */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleExtend();
+          }}
+          disabled={!canExtend || status === 'processing'}
+          className={`rf-button ${canExtend && status !== 'processing' ? 'rf-button-primary' : ''}`}
+        >
+          {status === 'processing' ? 'Extending...' : status === 'failed' ? 'Retry' : 'Extend'}
+        </button>
+
+        {/* Video Display */}
+        {node.video_url && !node.video_url.startsWith('gs://') && (
+          <video
+            src={node.video_url}
+            controls
+            preload="metadata"
+            className="w-full rounded-md mt-3"
+            style={{ maxHeight: '140px' }}
+            onClick={(e) => e.stopPropagation()}
+          />
+        )}
       </div>
     </div>
   );

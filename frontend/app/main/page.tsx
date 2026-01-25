@@ -4,9 +4,16 @@ import React, { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import ReactFlowCanvas from "@/components/canvas/ReactFlowCanvas";
 import BackendConnection from "@/components/BackendConnection";
-import FigmaSidebar from "@/components/FigmaSidebar";
+import { Sidebar, SidebarBody, SidebarLink, SidebarSection, SidebarDivider } from "@/components/ui/sidebar";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { projectsApi } from "@/lib/api";
+import { motion } from "framer-motion";
+import {
+  IconFolder,
+  IconVideo,
+  IconLogout,
+  IconPlus,
+} from "@tabler/icons-react";
 
 function MainPageContent() {
   const { isAuthenticated, loading: authLoading, user, logout } = useAuth();
@@ -18,6 +25,8 @@ function MainPageContent() {
   const [showProjectDialog, setShowProjectDialog] = useState(false);
   const [isSharedAccess, setIsSharedAccess] = useState(false);
   const [shareToken, setShareToken] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [recentProjects, setRecentProjects] = useState<Array<{ id: string; name: string }>>([]);
 
   // Check for share token first (allows guest access)
   useEffect(() => {
@@ -27,14 +36,13 @@ function MainPageContent() {
       setIsSharedAccess(true);
       loadSharedProject(shareParam);
     } else if (!authLoading && !isAuthenticated) {
-      // No share token and not authenticated - redirect to login
       router.push('/login');
     }
   }, [searchParams, authLoading, isAuthenticated, router]);
 
   // Load authenticated user's project if no share token
   useEffect(() => {
-    if (isSharedAccess) return; // Skip if using shared access
+    if (isSharedAccess) return;
     if (!isAuthenticated) return;
 
     const projectIdParam = searchParams.get('project');
@@ -42,7 +50,6 @@ function MainPageContent() {
       setProjectId(projectIdParam);
       loadProject(projectIdParam);
     } else {
-      // Try to get or create a default project
       loadOrCreateProject();
     }
   }, [isAuthenticated, searchParams, isSharedAccess]);
@@ -55,7 +62,6 @@ function MainPageContent() {
       setProjectName(project.name);
     } catch (error) {
       console.error('Failed to load shared project:', error);
-      // Shared project not found or disabled
       router.push('/login?error=shared_not_found');
     } finally {
       setLoading(false);
@@ -64,9 +70,13 @@ function MainPageContent() {
 
   const loadProject = async (id: string) => {
     try {
-      const project = await projectsApi.get(id);
+      const [project, projects] = await Promise.all([
+        projectsApi.get(id),
+        projectsApi.list(),
+      ]);
       setProjectName(project.name);
       setProjectId(id);
+      setRecentProjects(projects.slice(0, 5).map(p => ({ id: p.id, name: p.name })));
     } catch (error) {
       console.error('Failed to load project:', error);
       setShowProjectDialog(true);
@@ -78,6 +88,9 @@ function MainPageContent() {
   const loadOrCreateProject = async () => {
     try {
       const projects = await projectsApi.list();
+      // Store recent projects (up to 5)
+      setRecentProjects(projects.slice(0, 5).map(p => ({ id: p.id, name: p.name })));
+
       if (projects.length > 0) {
         const project = projects[0];
         setProjectId(project.id);
@@ -107,26 +120,41 @@ function MainPageContent() {
     }
   };
 
-  // Show loading
+  // Handle project switch
+  const handleProjectSwitch = (id: string, name: string) => {
+    setProjectId(id);
+    setProjectName(name);
+    router.replace(`/main?project=${id}`);
+  };
+
+  // Loading state
   if (authLoading || loading) {
     return (
-      <div className="w-full h-screen overflow-hidden bg-[#0a0a0a] flex items-center justify-center">
-        <div className="text-neutral-400">Loading...</div>
+      <div className="w-full h-screen overflow-hidden bg-[#0f0f0f] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-[#2a2a2a] border-t-white rounded-full animate-spin" />
+          <span className="text-[#606060] text-sm">Loading...</span>
+        </div>
       </div>
     );
   }
 
-  // Don't render if not authenticated and not shared access (will redirect)
+  // Not authenticated
   if (!isAuthenticated && !isSharedAccess) {
     return null;
   }
 
-  // Show project dialog if no project (only for authenticated users)
+  // Project dialog
   if (showProjectDialog && !isSharedAccess) {
     return (
-      <div className="w-full h-screen overflow-hidden bg-[#0a0a0a] flex items-center justify-center">
-        <div className="bg-[#0f0f0f] p-8 rounded-lg border border-neutral-800/50 max-w-md w-full">
-          <h2 className="text-xl font-semibold text-neutral-200 mb-4">Create New Project</h2>
+      <div className="w-full h-screen overflow-hidden bg-[#0f0f0f] flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-[#1a1a1a] p-8 rounded-xl border border-[#2a2a2a] max-w-md w-full mx-4"
+        >
+          <h2 className="text-xl font-medium text-white mb-2">Create New Project</h2>
+          <p className="text-[#606060] text-sm mb-6">Start a new AI video generation workflow</p>
           <input
             type="text"
             placeholder="Project name"
@@ -137,7 +165,7 @@ function MainPageContent() {
                 handleCreateProject(projectName.trim());
               }
             }}
-            className="w-full px-4 py-2 bg-[#0a0a0a] text-neutral-200 rounded-lg border border-neutral-800 focus:border-neutral-600 focus:outline-none mb-4 placeholder:text-neutral-600"
+            className="w-full px-4 py-3 bg-[#0f0f0f] text-white rounded-lg border border-[#2a2a2a] focus:border-[#3a3a3a] focus:outline-none text-sm mb-4 placeholder-[#4a4a4a]"
             autoFocus
           />
           <button
@@ -147,73 +175,111 @@ function MainPageContent() {
               }
             }}
             disabled={!projectName.trim()}
-            className="w-full py-2 px-4 bg-neutral-800 text-neutral-200 rounded-lg hover:bg-neutral-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-3 px-4 bg-white text-black rounded-lg text-sm font-medium hover:bg-[#e0e0e0] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
             Create Project
           </button>
-        </div>
+        </motion.div>
       </div>
     );
   }
 
   if (!projectId) {
     return (
-      <div className="w-full h-screen overflow-hidden bg-[#0a0a0a] flex items-center justify-center">
-        <div className="text-neutral-400">Loading project...</div>
+      <div className="w-full h-screen overflow-hidden bg-[#0f0f0f] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-[#2a2a2a] border-t-white rounded-full animate-spin" />
+          <span className="text-[#606060] text-sm">Loading project...</span>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full h-screen overflow-hidden bg-[#1a1a1a]">
-      {/* React Flow Canvas - pass share token for WebSocket */}
-      <ReactFlowCanvas projectId={projectId} shareToken={shareToken} />
+    <div className="flex h-screen w-full overflow-hidden bg-[#0f0f0f]">
+      {/* Sidebar */}
+      <Sidebar open={sidebarOpen} setOpen={setSidebarOpen}>
+        <SidebarBody className="justify-between gap-6">
+          {/* Top section */}
+          <div className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto">
+            {/* Logo */}
+            <div className="flex items-center gap-2 px-2 py-1 mb-6">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-white to-[#808080] flex items-center justify-center shrink-0">
+                <IconVideo className="w-4 h-4 text-black" />
+              </div>
+              <motion.span
+                animate={{
+                  display: sidebarOpen ? "block" : "none",
+                  opacity: sidebarOpen ? 1 : 0,
+                }}
+                className="text-white font-semibold text-sm whitespace-pre"
+              >
+                Axel
+              </motion.span>
+            </div>
+
+            {/* New Project Button */}
+            <SidebarLink
+              link={{
+                label: "New Project",
+                icon: <IconPlus className="h-5 w-5 shrink-0 text-[#808080]" />,
+                onClick: () => setShowProjectDialog(true),
+              }}
+            />
+
+            <SidebarDivider />
+
+            {/* Recent Projects */}
+            <SidebarSection title="Recent">
+              {recentProjects.map((project) => (
+                <SidebarLink
+                  key={project.id}
+                  link={{
+                    label: project.name,
+                    icon: <IconFolder className={`h-5 w-5 shrink-0 ${project.id === projectId ? 'text-white' : 'text-[#808080]'}`} />,
+                    onClick: () => handleProjectSwitch(project.id, project.name),
+                  }}
+                  className={project.id === projectId ? 'bg-[#2a2a2a]' : ''}
+                />
+              ))}
+            </SidebarSection>
+          </div>
+
+          {/* Bottom section */}
+          <div className="flex flex-col gap-1">
+            <SidebarDivider />
+            <SidebarLink
+              link={{
+                label: "Logout",
+                icon: <IconLogout className="h-5 w-5 shrink-0 text-[#808080]" />,
+                onClick: logout,
+              }}
+            />
+
+            {/* User info */}
+            <SidebarDivider />
+            <SidebarLink
+              link={{
+                label: user?.email || "User",
+                href: "#",
+                icon: (
+                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#3a3a3a] to-[#1a1a1a] flex items-center justify-center shrink-0 text-white text-xs font-medium">
+                    {user?.email?.charAt(0).toUpperCase() || "U"}
+                  </div>
+                ),
+              }}
+            />
+          </div>
+        </SidebarBody>
+      </Sidebar>
+
+      {/* Main content area - Full canvas */}
+      <div className="flex-1 relative overflow-hidden">
+        <ReactFlowCanvas projectId={projectId} shareToken={shareToken} />
+      </div>
 
       {/* Backend Connection Status */}
       <BackendConnection />
-
-      {/* User Info & Logout - different UI for guests */}
-      <div className="absolute top-14 left-4 z-20 bg-[#2a2a2a] px-4 py-2 rounded-lg shadow-lg border border-gray-700 flex items-center gap-3">
-        <div className="text-sm">
-          <div className="text-gray-400 text-xs">Project</div>
-          <div className="text-white font-medium">{projectName}</div>
-        </div>
-        
-        {isSharedAccess ? (
-          <>
-            <div className="w-px h-6 bg-gray-600"></div>
-            <div className="text-sm">
-              <div className="text-gray-400 text-xs">Access</div>
-              <div className="text-[var(--color-success)] font-medium flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-current"></span>
-                Shared Link
-              </div>
-            </div>
-            {!isAuthenticated && (
-              <button
-                onClick={() => router.push('/login')}
-                className="ml-2 px-3 py-1.5 text-xs bg-[var(--color-accent-primary)] text-white rounded hover:bg-[var(--color-accent-primary-hover)] transition-colors"
-              >
-                Sign In
-              </button>
-            )}
-          </>
-        ) : (
-          <>
-            <div className="w-px h-6 bg-gray-600"></div>
-            <div className="text-sm">
-              <div className="text-gray-400 text-xs">User</div>
-              <div className="text-white font-medium">{user?.email}</div>
-            </div>
-            <button
-              onClick={logout}
-              className="ml-2 px-3 py-1.5 text-xs bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
-            >
-              Logout
-            </button>
-          </>
-        )}
-      </div>
     </div>
   );
 }
@@ -221,8 +287,11 @@ function MainPageContent() {
 export default function MainPage() {
   return (
     <Suspense fallback={
-      <div className="w-full h-screen overflow-hidden bg-[#0a0a0a] flex items-center justify-center">
-        <div className="text-neutral-400">Loading...</div>
+      <div className="w-full h-screen overflow-hidden bg-[#0f0f0f] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-[#2a2a2a] border-t-white rounded-full animate-spin" />
+          <span className="text-[#606060] text-sm">Loading...</span>
+        </div>
       </div>
     }>
       <MainPageContent />

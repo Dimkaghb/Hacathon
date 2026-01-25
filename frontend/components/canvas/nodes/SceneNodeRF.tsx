@@ -49,7 +49,8 @@ export default function SceneNodeRF({ data, selected }: CustomNodeProps) {
           value={description}
           onChange={(e) => handleDescriptionChange(e.target.value)}
           placeholder="Describe the scene..."
-          className="rf-textarea h-24"
+          className="rf-textarea"
+          style={{ minHeight: '100px' }}
           onClick={(e) => e.stopPropagation()}
         />
         <div className="flex justify-end mt-1.5">

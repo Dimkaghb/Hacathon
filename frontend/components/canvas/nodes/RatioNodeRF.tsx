@@ -1,21 +1,25 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import { CustomNodeProps } from './types';
+
+const RATIO_OPTIONS = [
+  { value: '16:9', label: '16:9' },
+  { value: '9:16', label: '9:16' },
+  { value: '1:1', label: '1:1' },
+  { value: '4:3', label: '4:3' },
+  { value: '21:9', label: '21:9' },
+];
 
 export default function RatioNodeRF({ data, selected }: CustomNodeProps) {
   // Access backend node data
   const node = (data.data || {}) as Record<string, any>;
   const [aspectRatio, setAspectRatio] = useState(node.aspect_ratio || '16:9');
 
-  const ratioOptions = [
-    { value: '16:9', label: '16:9' },
-    { value: '9:16', label: '9:16' },
-    { value: '1:1', label: '1:1' },
-    { value: '4:3', label: '4:3' },
-    { value: '21:9', label: '21:9' },
-  ];
+  useEffect(() => {
+    setAspectRatio(node.aspect_ratio || '16:9');
+  }, [node.aspect_ratio]);
 
   const handleRatioChange = (value: string) => {
     setAspectRatio(value);
@@ -50,18 +54,18 @@ export default function RatioNodeRF({ data, selected }: CustomNodeProps) {
 
       {/* Node Content */}
       <div className="rf-node-content">
-        <div className="grid grid-cols-3 gap-1.5">
-          {ratioOptions.map(option => (
+        <div className="grid grid-cols-5 gap-1">
+          {RATIO_OPTIONS.map((option) => (
             <button
               key={option.value}
               onClick={(e) => {
                 e.stopPropagation();
                 handleRatioChange(option.value);
               }}
-              className={`px-2 py-1.5 text-[10px] rounded transition-colors ${
+              className={`py-2 px-1 text-[10px] rounded transition-colors ${
                 aspectRatio === option.value
-                  ? 'bg-white text-[#0f0f0f]'
-                  : 'bg-[#2a2a2a] text-[#808080] hover:bg-[#3a3a3a]'
+                  ? 'bg-white text-black'
+                  : 'bg-[#2a2a2a] text-[#808080] hover:bg-[#3a3a3a] hover:text-white'
               }`}
             >
               {option.label}

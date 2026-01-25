@@ -41,7 +41,8 @@ export default function PromptNodeRF({ data, selected }: CustomNodeProps) {
           value={prompt}
           onChange={(e) => handlePromptChange(e.target.value)}
           placeholder="Describe your video scene..."
-          className="rf-textarea h-28"
+          className="rf-textarea"
+          style={{ minHeight: '120px' }}
           onClick={(e) => e.stopPropagation()}
         />
         <div className="flex justify-end mt-1.5">
