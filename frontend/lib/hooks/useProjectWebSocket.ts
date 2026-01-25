@@ -4,7 +4,22 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { tokenStorage } from '../api';
 import { Node, Connection as BackendConnection } from '../types/node';
 
-const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000';
+// Get WebSocket URL and ensure correct protocol based on page protocol
+const getWsBaseUrl = () => {
+  const configuredUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000';
+  
+  // If running in browser, ensure protocol matches page protocol
+  if (typeof window !== 'undefined') {
+    const isHttps = window.location.protocol === 'https:';
+    if (isHttps && configuredUrl.startsWith('ws://')) {
+      // Upgrade ws:// to wss:// when page is HTTPS
+      return configuredUrl.replace('ws://', 'wss://');
+    }
+  }
+  return configuredUrl;
+};
+
+const WS_BASE_URL = getWsBaseUrl();
 
 // Message types from backend
 export type WebSocketMessageType = 
