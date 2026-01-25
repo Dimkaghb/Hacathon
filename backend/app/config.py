@@ -1,6 +1,8 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator
 from functools import lru_cache
 from typing import List, Optional
+import json
 
 
 class Settings(BaseSettings):
@@ -36,6 +38,24 @@ class Settings(BaseSettings):
     # App
     DEBUG: bool = True
     CORS_ORIGINS: List[str] = ["*"]  # Allow all origins for development
+
+    @field_validator('CORS_ORIGINS', mode='before')
+    @classmethod
+    def parse_cors_origins(cls, v):
+        """Parse CORS_ORIGINS from JSON string or comma-separated values"""
+        if isinstance(v, list):
+            return v
+        if isinstance(v, str):
+            # Try JSON parsing first
+            try:
+                parsed = json.loads(v)
+                if isinstance(parsed, list):
+                    return parsed
+            except json.JSONDecodeError:
+                pass
+            # Fall back to comma-separated
+            return [origin.strip() for origin in v.split(',') if origin.strip()]
+        return ["*"]
 
     # Veo Configuration
     VEO_MODEL: str = "veo-3.1-generate-preview"

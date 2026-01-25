@@ -46,6 +46,7 @@ async function apiFetch<T>(
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true',  // Skip ngrok browser warning
     ...(options.headers as Record<string, string>),
   };
 
@@ -112,6 +113,7 @@ async function refreshAccessToken(): Promise<boolean> {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
+        'ngrok-skip-browser-warning': 'true',
       },
       body: formData.toString(),
     });
@@ -434,6 +436,7 @@ export const filesApi = {
         method: 'POST',
         headers: {
           'Authorization': accessToken ? `Bearer ${accessToken}` : '',
+          'ngrok-skip-browser-warning': 'true',
           // Don't set Content-Type header - browser will set it with boundary for FormData
         },
         body: formData,
