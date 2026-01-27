@@ -85,7 +85,6 @@ export default function FigmaSidebar({
                 key={idx}
                 link={link}
                 className="hover:bg-neutral-800/50 rounded-lg px-2"
-                onClick={link.onClick}
               />
             ))}
 

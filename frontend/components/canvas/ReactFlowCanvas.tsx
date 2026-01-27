@@ -173,6 +173,8 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
   // Flexible: extracts data from any connected node based on what data is available
   const getConnectedData = (nodeId: string, nodes: Node[], connections: BackendConnection[]) => {
     const nodeConnections = connections.filter(c => c.target_node_id === nodeId);
+    
+    console.log('[getConnectedData] Node:', nodeId, 'Connections:', nodeConnections.length);
 
     let prompt = '';
     let imageUrl = '';
@@ -185,7 +187,12 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
 
     for (const connection of nodeConnections) {
       const sourceNode = nodes.find(n => n.id === connection.source_node_id);
-      if (!sourceNode) continue;
+      if (!sourceNode) {
+        console.log('[getConnectedData] Source node not found:', connection.source_node_id);
+        continue;
+      }
+      
+      console.log('[getConnectedData] Source node data:', sourceNode.type, sourceNode.data);
 
       // Extract prompt data from any node that has it
       if (sourceNode.data?.prompt && !prompt) {
@@ -208,6 +215,7 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
       }
     }
 
+    console.log('[getConnectedData] Result:', { prompt: prompt?.substring(0, 50), imageUrl: imageUrl?.substring(0, 50), hasVideoData: !!videoData });
     return { prompt, imageUrl, videoData };
   };
 
@@ -262,7 +270,15 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
   ) => {
     const nodesToUse = nodesOverride || backendNodes;
     const connectionsToUse = connectionsOverride || backendConnections;
+    
+    console.log('[updateVideoNodeConnectedData] NodeId:', nodeId);
+    console.log('[updateVideoNodeConnectedData] Nodes count:', nodesToUse.length);
+    console.log('[updateVideoNodeConnectedData] Connections count:', connectionsToUse.length);
+    
     const { prompt, imageUrl, videoData } = getConnectedData(nodeId, nodesToUse, connectionsToUse);
+    
+    console.log('[updateVideoNodeConnectedData] Result:', { prompt: prompt?.substring(0, 30), imageUrl: imageUrl?.substring(0, 30) });
+    
     setNodes(nds =>
       nds.map(n => {
         if (n.id !== nodeId) return n;
@@ -576,8 +592,18 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
       const updatedConnections = [...backendConnections, newConnection as BackendConnection];
       setBackendConnections(updatedConnections);
 
+      console.log('[handleConnect] Connection created:', {
+        source: connection.source,
+        target: connection.target,
+        sourceType: sourceNode.type,
+        targetType: targetNode.type,
+        sourceHandle: connection.sourceHandle,
+        targetHandle: connection.targetHandle
+      });
+
       // Update video/extension nodes if affected - pass updated connections to avoid stale closure
       if (targetNode.type === 'video' || targetNode.type === 'extension') {
+        console.log('[handleConnect] Updating connected data for target:', targetNode.id);
         updateVideoNodeConnectedData(connection.target, backendNodes, updatedConnections);
       }
     } catch (error) {
@@ -633,17 +659,46 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
     try {
       await nodesApi.update(projectId, nodeId, { data }, shareToken);
 
+      // Calculate updated nodes first
+      const updatedNodes = backendNodes.map(n => 
+        n.id === nodeId ? { ...n, data: { ...n.data, ...data } } : n
+      );
+      
       // Update backend state
-      setBackendNodes(prev =>
-        prev.map(n => (n.id === nodeId ? { ...n, data: { ...n.data, ...data } } : n))
-      );
+      setBackendNodes(updatedNodes);
 
-      // Update React Flow state
-      setNodes(nds =>
-        nds.map(n =>
+      // Update React Flow state with connected data recalculated
+      setNodes(nds => {
+        // First update the changed node
+        let updated = nds.map(n =>
           n.id === nodeId ? { ...n, data: { ...n.data, data: { ...(n.data?.data || {}), ...data } } } : n
-        )
-      );
+        );
+        
+        // Then update any video/extension nodes connected to this source
+        const affectedConnections = backendConnections.filter(c => c.source_node_id === nodeId);
+        console.log('[handleNodeUpdate] Node:', nodeId, 'Affected connections:', affectedConnections.length);
+        
+        for (const connection of affectedConnections) {
+          const targetNode = updatedNodes.find(n => n.id === connection.target_node_id);
+          if (targetNode && (targetNode.type === 'video' || targetNode.type === 'extension')) {
+            const connectedData = getConnectedData(connection.target_node_id, updatedNodes, backendConnections);
+            console.log('[handleNodeUpdate] Updating target node:', connection.target_node_id, 'with:', connectedData);
+            
+            updated = updated.map(n => {
+              if (n.id !== connection.target_node_id) return n;
+              if (n.type === 'video') {
+                return { ...n, data: { ...n.data, connectedPrompt: connectedData.prompt, connectedImageUrl: connectedData.imageUrl } };
+              }
+              if (n.type === 'extension') {
+                return { ...n, data: { ...n.data, connectedPrompt: connectedData.prompt, connectedVideo: connectedData.videoData } };
+              }
+              return n;
+            });
+          }
+        }
+        
+        return updated;
+      });
     } catch (error) {
       console.error('Failed to update node:', error);
     }
@@ -692,7 +747,7 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
         node_id: nodeId,
         prompt,
         image_url: imageUrl || undefined,
-        resolution: videoNode.data?.resolution || '1080p',
+        resolution: videoNode.data?.resolution || '720p',
         duration: videoNode.data?.duration || 8,
         aspect_ratio: '16:9',
       });

@@ -470,3 +470,171 @@
   font-size: 10px;
   color: #4a4a4a;
 }
+
+/* ========================================
+   FORM ELEMENTS IN NODES
+   ======================================== */
+
+.rf-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.rf-input {
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--color-text-primary);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-default);
+  border-radius: 6px;
+  outline: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.rf-input:focus {
+  border-color: var(--color-accent-primary);
+  background: var(--color-bg-tertiary);
+}
+
+.rf-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.rf-textarea {
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--color-text-primary);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-default);
+  border-radius: 6px;
+  outline: none;
+  resize: vertical;
+  min-height: 60px;
+  font-family: inherit;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.rf-textarea:focus {
+  border-color: var(--color-accent-primary);
+  background: var(--color-bg-tertiary);
+}
+
+.rf-textarea::placeholder {
+  color: var(--color-text-muted);
+}
+
+/* ========================================
+   BUTTONS
+   ======================================== */
+
+.rf-button {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-hover);
+  border: 1px solid var(--color-border-default);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.rf-button:hover:not(:disabled) {
+  background: var(--color-bg-elevated);
+  border-color: var(--color-border-hover);
+}
+
+.rf-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rf-button-primary {
+  background: var(--color-accent-primary);
+  border-color: var(--color-accent-primary);
+  color: white;
+}
+
+.rf-button-primary:hover:not(:disabled) {
+  background: var(--color-accent-primary-hover);
+  border-color: var(--color-accent-primary-hover);
+}
+
+/* ========================================
+   BADGES & STATUS
+   ======================================== */
+
+.rf-badge {
+  padding: 2px 6px;
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  background: var(--color-bg-secondary);
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.rf-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-border-default);
+  flex-shrink: 0;
+}
+
+.text-\[\#808080\] .rf-status-dot,
+.rf-status-dot.connected {
+  background: var(--color-success);
+}
+
+/* ========================================
+   PROGRESS & MESSAGES
+   ======================================== */
+
+.rf-progress {
+  width: 100%;
+  height: 4px;
+  background: var(--color-bg-secondary);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.rf-progress-bar {
+  height: 100%;
+  background: var(--color-accent-primary);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.rf-message {
+  padding: 8px 10px;
+  font-size: 11px;
+  border-radius: 6px;
+}
+
+.rf-message-error {
+  color: var(--color-error);
+  background: var(--color-error-muted);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.rf-message-success {
+  color: var(--color-success);
+  background: var(--color-success-muted);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.rf-message-warning {
+  color: var(--color-warning);
+  background: var(--color-warning-muted);
+  border: 1px solid rgba(234, 179, 8, 0.2);
+}

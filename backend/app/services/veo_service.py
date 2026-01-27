@@ -196,7 +196,7 @@ class VeoService:
         self,
         prompt: str,
         image_url: Optional[str] = None,
-        resolution: str = "1080p",
+        resolution: str = "720p",
         aspect_ratio: str = "16:9",
         duration: int = 8,
         negative_prompt: Optional[str] = None,
