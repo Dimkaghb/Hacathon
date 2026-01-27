@@ -14,7 +14,7 @@ A node-based AI video generation platform powered by Google Veo 3.1. Create, ext
 - **Node-Based Editor**: Visual workflow using React Flow for intuitive video creation
 - **Real-time Progress**: WebSocket updates for live generation progress tracking
 
-## 🏗️ Architecture
+## 🏗️ Architecture.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
