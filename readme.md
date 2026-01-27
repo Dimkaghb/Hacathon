@@ -5,7 +5,7 @@
 
 A node-based AI video generation platform powered by Google Veo 3.1. Create, extend, and chain videos using an intuitive visual interface.
 
-## 🎯 Features
+## 🎯 Features.
 
 - **Text-to-Video Generation**: Generate high-quality videos from text prompts
 - **Image-to-Video Generation**: Animate static images into videos
