@@ -1,4 +1,7 @@
-# Axel - AI Video Generation Platform
+# Axel - AIcd Video Generation Platform.
+
+
+
 
 A node-based AI video generation platform powered by Google Veo 3.1. Create, extend, and chain videos using an intuitive visual interface.
 
