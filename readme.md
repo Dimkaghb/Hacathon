@@ -118,7 +118,7 @@ Hacathon/
 └── test_video_flow.sh         # Full E2E test script
 ```
 
-## 🚀 Getting Started
+## 🚀 Getting Started.
 
 ### Prerequisites
 
