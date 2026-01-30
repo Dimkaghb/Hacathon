@@ -24,11 +24,11 @@ import { nodesApi, connectionsApi, aiApi } from '@/lib/api';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { nodeTypes } from './nodes';
 import { edgeTypes } from './edges';
-import { FloatingDock } from '@/components/ui/floating-dock';
+import { FloatingDock, DockItem } from '@/components/ui/floating-dock';
 import { ThemePicker } from '@/components/ui/ThemePicker';
 import { ShareButton } from '@/components/ui/ShareButton';
 import { useProjectWebSocket, JobProgressMessage, NodeUpdateMessage, CursorMoveMessage } from '@/lib/hooks/useProjectWebSocket';
-import { IconPhoto, IconMessageCircle, IconVideo, IconBox, IconAspectRatio, IconCameraRotate, IconPlayerTrackNext, IconWifi, IconWifiOff } from '@tabler/icons-react';
+import { IconPhoto, IconMessageCircle, IconVideo, IconBox, IconAspectRatio, IconCameraRotate, IconPlayerTrackNext, IconWifi, IconWifiOff, IconComponents } from '@tabler/icons-react';
 
 interface ReactFlowCanvasProps {
   projectId: string;
@@ -864,7 +864,7 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
   }
 
   // Floating dock items
-  const dockItems = [
+  const dockItems: DockItem[] = [
     {
       title: "Image",
       icon: (
@@ -914,40 +914,50 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
       id: 'extension',
     },
     {
-      title: "Container",
+      title: "Components",
       icon: (
-        <IconBox className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+        <IconComponents className="h-full w-full text-neutral-500 dark:text-neutral-300" />
       ),
       href: "#",
-      onClick: (e: React.MouseEvent) => {
-        e.preventDefault();
-        handleAddNode('container');
-      },
-      id: 'container',
-    },
-    {
-      title: "Ratio",
-      icon: (
-        <IconAspectRatio className="h-full w-full text-neutral-500 dark:text-neutral-300" />
-      ),
-      href: "#",
-      onClick: (e: React.MouseEvent) => {
-        e.preventDefault();
-        handleAddNode('ratio');
-      },
-      id: 'ratio',
-    },
-    {
-      title: "Scene",
-      icon: (
-        <IconCameraRotate className="h-full w-full text-neutral-500 dark:text-neutral-300" />
-      ),
-      href: "#",
-      onClick: (e: React.MouseEvent) => {
-        e.preventDefault();
-        handleAddNode('scene');
-      },
-      id: 'scene',
+      id: 'components',
+      children: [
+        {
+          title: "Container",
+          icon: (
+            <IconBox className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+          ),
+          href: "#",
+          onClick: (e: React.MouseEvent) => {
+            e.preventDefault();
+            handleAddNode('container');
+          },
+          id: 'container',
+        },
+        {
+          title: "Ratio",
+          icon: (
+            <IconAspectRatio className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+          ),
+          href: "#",
+          onClick: (e: React.MouseEvent) => {
+            e.preventDefault();
+            handleAddNode('ratio');
+          },
+          id: 'ratio',
+        },
+        {
+          title: "Scene",
+          icon: (
+            <IconCameraRotate className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+          ),
+          href: "#",
+          onClick: (e: React.MouseEvent) => {
+            e.preventDefault();
+            handleAddNode('scene');
+          },
+          id: 'scene',
+        },
+      ],
     },
   ];
 
