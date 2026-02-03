@@ -25,7 +25,7 @@ import { useAuth } from '@/lib/contexts/AuthContext';
 import { nodeTypes } from './nodes';
 import { edgeTypes } from './edges';
 import { FloatingDock, DockItem } from '@/components/ui/floating-dock';
-import { IconPhoto, IconMessageCircle, IconVideo, IconBox, IconAspectRatio, IconCameraRotate, IconPlayerTrackNext, IconComponents } from '@tabler/icons-react';
+import { IconPhoto, IconMessageCircle, IconVideo, IconPlayerTrackNext, IconComponents } from '@tabler/icons-react';
 
 interface ReactFlowCanvasProps {
   projectId: string;
@@ -64,6 +64,7 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
   const positionUpdateTimers = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   const [loading, setLoading] = useState(true);
+  const [showComingSoon, setShowComingSoon] = useState(false);
 
   // Ref for shareToken to use in callbacks
   const shareTokenRef = useRef(shareToken);
@@ -794,45 +795,12 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
         <IconComponents className="h-full w-full text-neutral-500 dark:text-neutral-300" />
       ),
       href: "#",
+      onClick: (e: React.MouseEvent) => {
+        e.preventDefault();
+        setShowComingSoon(true);
+        setTimeout(() => setShowComingSoon(false), 2000);
+      },
       id: 'components',
-      children: [
-        {
-          title: "Container",
-          icon: (
-            <IconBox className="h-full w-full text-neutral-500 dark:text-neutral-300" />
-          ),
-          href: "#",
-          onClick: (e: React.MouseEvent) => {
-            e.preventDefault();
-            handleAddNode('container');
-          },
-          id: 'container',
-        },
-        {
-          title: "Ratio",
-          icon: (
-            <IconAspectRatio className="h-full w-full text-neutral-500 dark:text-neutral-300" />
-          ),
-          href: "#",
-          onClick: (e: React.MouseEvent) => {
-            e.preventDefault();
-            handleAddNode('ratio');
-          },
-          id: 'ratio',
-        },
-        {
-          title: "Scene",
-          icon: (
-            <IconCameraRotate className="h-full w-full text-neutral-500 dark:text-neutral-300" />
-          ),
-          href: "#",
-          onClick: (e: React.MouseEvent) => {
-            e.preventDefault();
-            handleAddNode('scene');
-          },
-          id: 'scene',
-        },
-      ],
     },
   ];
 
@@ -859,6 +827,13 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
       <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50">
         <FloatingDock items={dockItems} />
       </div>
+
+      {/* Coming Soon tooltip */}
+      {showComingSoon && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-3 py-1.5 bg-white text-black text-sm font-medium rounded-md shadow-lg">
+          Coming soon
+        </div>
+      )}
     </div>
   );
 }
