@@ -4,7 +4,6 @@ Video Generation Celery Tasks
 Production-ready tasks with:
 - Automatic retries with exponential backoff
 - Progress tracking via task state
-- WebSocket notifications
 - Comprehensive error handling
 """
 import asyncio
@@ -17,7 +16,6 @@ from sqlalchemy.orm import Session
 from app.core.celery_app import celery_app
 from app.services.veo_service import veo_service
 from app.services.face_service import face_service
-from app.core.websocket_manager import manager
 from app.models.node import Node, NodeStatus
 from app.models.job import Job, JobStatus
 from app.config import settings
@@ -87,33 +85,6 @@ def update_node_status_sync(
     return None
 
 
-def broadcast_progress_sync(
-    project_id: str,
-    node_id: str,
-    progress: int,
-    status: str,
-    message: str,
-):
-    """Broadcast progress to WebSocket clients (sync wrapper)."""
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
-    try:
-        loop.run_until_complete(
-            manager.broadcast_job_progress(
-                project_id=project_id,
-                node_id=node_id,
-                progress=progress,
-                status=status,
-                message=message,
-            )
-        )
-    except Exception as e:
-        logger.warning(f"Failed to broadcast progress: {e}")
-    finally:
-        loop.close()
-
-
 def _execute_video_operation(
     celery_task,
     job_id: str,
@@ -133,7 +104,7 @@ def _execute_video_operation(
         celery_task: The Celery task instance (self from the task)
         job_id: The job ID to track
         node_id: The node ID to update
-        project_id: The project ID for WebSocket broadcasts
+        project_id: The project ID
         start_operation: Async callable that starts the operation and returns operation_id
         operation_label: Label for progress messages (e.g., "Generating", "Extending")
         build_result_data: Callable that builds final result data from video_result
@@ -146,8 +117,6 @@ def _execute_video_operation(
 
     try:
         # Start the operation
-        broadcast_progress_sync(project_id, node_id, 5, "processing", f"Starting {operation_label.lower()}...")
-
         try:
             operation_id = loop.run_until_complete(start_operation())
         except Exception as e:
@@ -155,12 +124,10 @@ def _execute_video_operation(
             if "safety" in error_msg.lower() or "blocked" in error_msg.lower():
                 update_job_status_sync(job_id, JobStatus.FAILED, error="Content blocked by safety filters")
                 update_node_status_sync(node_id, NodeStatus.FAILED, error_message="Content blocked")
-                broadcast_progress_sync(project_id, node_id, 0, "failed", "Content blocked")
                 raise Exception("Content blocked by safety filters - will not retry")
             raise
 
         update_job_status_sync(job_id, JobStatus.PROCESSING, progress=10, operation_id=operation_id)
-        broadcast_progress_sync(project_id, node_id, 10, "processing", f"{operation_label}...")
 
         # Poll for completion
         poll_count = 0
@@ -174,15 +141,12 @@ def _execute_video_operation(
                     error_msg = result["error"]
                     update_job_status_sync(job_id, JobStatus.FAILED, error=error_msg)
                     update_node_status_sync(node_id, NodeStatus.FAILED, error_message=error_msg)
-                    broadcast_progress_sync(project_id, node_id, 0, "failed", error_msg[:100])
 
                     if "quota" in error_msg.lower() or "rate" in error_msg.lower():
                         raise Exception(f"Rate limited: {error_msg}")  # Will retry
                     raise Exception(error_msg)
 
                 # Download video
-                broadcast_progress_sync(project_id, node_id, 85, "processing", "Downloading...")
-
                 video_id = str(uuid4())
                 destination_path = f"videos/{project_id}/{video_id}"
 
@@ -199,7 +163,6 @@ def _execute_video_operation(
 
                 update_job_status_sync(job_id, JobStatus.COMPLETED, progress=100, result=result_data)
                 update_node_status_sync(node_id, NodeStatus.COMPLETED, data=result_data)
-                broadcast_progress_sync(project_id, node_id, 100, "completed", "Complete")
 
                 logger.info(f"Video operation complete for job {job_id}")
                 return result_data
@@ -215,7 +178,6 @@ def _execute_video_operation(
             )
 
             update_job_status_sync(job_id, JobStatus.PROCESSING, progress=progress)
-            broadcast_progress_sync(project_id, node_id, progress, "processing", f"{operation_label}...")
 
             loop.run_until_complete(asyncio.sleep(settings.VEO_POLL_INTERVAL))
 
@@ -229,7 +191,6 @@ def _execute_video_operation(
         if celery_task.request.retries >= celery_task.max_retries:
             update_job_status_sync(job_id, JobStatus.FAILED, error=str(e))
             update_node_status_sync(node_id, NodeStatus.FAILED, error_message=str(e))
-            broadcast_progress_sync(project_id, node_id, 0, "failed", str(e)[:100])
 
         raise
 
@@ -277,12 +238,10 @@ def generate_video(
     # Update status to processing
     update_job_status_sync(job_id, JobStatus.PROCESSING, progress=0)
     update_node_status_sync(node_id, NodeStatus.PROCESSING)
-    broadcast_progress_sync(project_id, node_id, 0, "processing", "Starting...")
 
     # Load character description if provided (before starting the operation)
     character_description = None
     if character_id:
-        broadcast_progress_sync(project_id, node_id, 2, "processing", "Loading character...")
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
@@ -379,7 +338,6 @@ def extend_video(
     # Update status to processing
     update_job_status_sync(job_id, JobStatus.PROCESSING, progress=0)
     update_node_status_sync(node_id, NodeStatus.PROCESSING)
-    broadcast_progress_sync(project_id, node_id, 0, "processing", "Starting...")
 
     # Define the operation starter
     async def start_operation() -> str:

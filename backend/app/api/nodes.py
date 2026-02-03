@@ -9,7 +9,6 @@ from app.models.project import Project
 from app.models.node import Node, NodeType, NodeStatus
 from app.schemas.node import NodeCreate, NodeUpdate, NodeResponse
 from app.api.deps import verify_project_access
-from app.core.websocket_manager import manager
 
 router = APIRouter()
 
@@ -48,21 +47,6 @@ async def create_node(
     db.add(node)
     await db.commit()
     await db.refresh(node)
-
-    # Broadcast to WebSocket clients
-    await manager.broadcast_node_update(
-        str(project.id),
-        str(node.id),
-        "created",
-        {
-            "id": str(node.id),
-            "type": node.type.value,
-            "position_x": node.position_x,
-            "position_y": node.position_y,
-            "data": node.data,
-            "status": node.status.value,
-        },
-    )
 
     return node
 
@@ -117,20 +101,6 @@ async def update_node(
     await db.commit()
     await db.refresh(node)
 
-    # Broadcast update
-    await manager.broadcast_node_update(
-        str(project.id),
-        str(node.id),
-        "updated",
-        {
-            "id": str(node.id),
-            "position_x": node.position_x,
-            "position_y": node.position_y,
-            "data": node.data,
-            "status": node.status.value,
-        },
-    )
-
     return node
 
 
@@ -153,11 +123,3 @@ async def delete_node(
 
     await db.delete(node)
     await db.commit()
-
-    # Broadcast deletion
-    await manager.broadcast_node_update(
-        str(project.id),
-        str(node_id),
-        "deleted",
-        {"id": str(node_id)},
-    )

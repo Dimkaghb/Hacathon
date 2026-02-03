@@ -25,10 +25,7 @@ import { useAuth } from '@/lib/contexts/AuthContext';
 import { nodeTypes } from './nodes';
 import { edgeTypes } from './edges';
 import { FloatingDock, DockItem } from '@/components/ui/floating-dock';
-import { ThemePicker } from '@/components/ui/ThemePicker';
-import { ShareButton } from '@/components/ui/ShareButton';
-import { useProjectWebSocket, JobProgressMessage, NodeUpdateMessage, CursorMoveMessage } from '@/lib/hooks/useProjectWebSocket';
-import { IconPhoto, IconMessageCircle, IconVideo, IconBox, IconAspectRatio, IconCameraRotate, IconPlayerTrackNext, IconWifi, IconWifiOff, IconComponents } from '@tabler/icons-react';
+import { IconPhoto, IconMessageCircle, IconVideo, IconBox, IconAspectRatio, IconCameraRotate, IconPlayerTrackNext, IconComponents } from '@tabler/icons-react';
 
 interface ReactFlowCanvasProps {
   projectId: string;
@@ -68,106 +65,9 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
 
   const [loading, setLoading] = useState(true);
 
-  // Refs for WebSocket callback functions (to avoid stale closures)
-  const updateNodeDataRef = useRef<((nodeId: string, data: Record<string, any>, status?: 'idle' | 'processing' | 'completed' | 'failed', errorMessage?: string) => void) | null>(null);
+  // Ref for shareToken to use in callbacks
   const shareTokenRef = useRef(shareToken);
   shareTokenRef.current = shareToken;
-  
-  // WebSocket handlers using refs
-  const handleWsJobProgress = useCallback((message: JobProgressMessage) => {
-    console.log('[WebSocket] Job progress:', message);
-    
-    const updateFn = updateNodeDataRef.current;
-    if (!updateFn) return;
-    
-    if (message.status === 'completed') {
-      // Fetch full node data since WebSocket message may not have all details
-      nodesApi.get(projectId, message.node_id, shareTokenRef.current).then(node => {
-        updateFn(
-          message.node_id,
-          {
-            ...node.data,
-            progress: 100,
-            progress_message: 'Video ready',
-          },
-          'completed'
-        );
-      }).catch(err => {
-        console.error('Failed to fetch completed node:', err);
-        updateFn(message.node_id, { progress: 100, progress_message: 'Video ready' }, 'completed');
-      });
-      
-      // Clear any polling for this node
-      jobPollingRef.current.forEach((timeout) => {
-        clearTimeout(timeout);
-      });
-    } else if (message.status === 'failed') {
-      updateFn(
-        message.node_id,
-        {
-          progress: message.progress,
-          progress_message: message.message || 'Generation failed',
-        },
-        'failed',
-        message.message
-      );
-    } else {
-      // Processing
-      updateFn(
-        message.node_id,
-        {
-          progress: message.progress,
-          progress_message: message.message || `Processing... ${message.progress}%`,
-        },
-        'processing'
-      );
-    }
-  }, [projectId]);
-
-  const handleWsNodeUpdate = useCallback((message: NodeUpdateMessage) => {
-    console.log('[WebSocket] Node update:', message);
-    
-    if (message.update_type === 'updated') {
-      // Update local state with the new node data
-      setBackendNodes(prev => 
-        prev.map(n => n.id === message.node_id ? { ...n, ...message.data } : n)
-      );
-    } else if (message.update_type === 'deleted') {
-      setBackendNodes(prev => prev.filter(n => n.id !== message.node_id));
-      setNodes(prev => prev.filter(n => n.id !== message.node_id));
-    } else if (message.update_type === 'created') {
-      // Add the new node from the message data
-      if (message.data) {
-        setBackendNodes(prev => [...prev, message.data]);
-        // Transform and add to React Flow
-        setNodes(prev => [
-          ...prev,
-          {
-            id: message.data.id,
-            type: message.data.type,
-            position: { x: message.data.position_x, y: message.data.position_y },
-            data: {
-              data: message.data.data,
-              status: message.data.status,
-              error_message: message.data.error_message,
-            },
-          },
-        ]);
-      }
-    }
-  }, []);
-
-  // WebSocket connection for real-time collaboration
-  const { 
-    isConnected: wsConnected, 
-    collaborators,
-    sendCursorPosition,
-    sendNodeSelect,
-  } = useProjectWebSocket(projectId, {
-    shareToken,
-    onJobProgress: handleWsJobProgress,
-    onNodeUpdate: handleWsNodeUpdate,
-  });
 
   // Helper function to get connected data (no useCallback to avoid circular deps)
   // Flexible: extracts data from any connected node based on what data is available
@@ -334,11 +234,6 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
       )
     );
   }, []);
-
-  // Keep the updateNodeData ref current for WebSocket callbacks
-  useEffect(() => {
-    updateNodeDataRef.current = updateNodeData;
-  }, [updateNodeData]);
 
   // Start job polling
   const startJobPolling = useCallback((jobId: string, nodeId: string) => {
@@ -835,26 +730,6 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
     }
   }, [updateNodeData, startJobPolling]);
 
-  // Handle mouse move for cursor broadcasting (throttled)
-  // NOTE: Must be defined before early returns to satisfy React's rules of hooks
-  const lastCursorBroadcast = useRef(0);
-  const handleCanvasMouseMove = useCallback((e: React.MouseEvent) => {
-    const now = Date.now();
-    // Throttle to max 20 updates per second
-    if (now - lastCursorBroadcast.current > 50) {
-      lastCursorBroadcast.current = now;
-      // Get position relative to canvas
-      const rect = e.currentTarget.getBoundingClientRect();
-      sendCursorPosition(e.clientX - rect.left, e.clientY - rect.top);
-    }
-  }, [sendCursorPosition]);
-
-  // Handle node selection change for broadcasting
-  const handleSelectionChange = useCallback(({ nodes: selectedNodes }: { nodes: RFNode[] }) => {
-    const selectedId = selectedNodes.length > 0 ? selectedNodes[0].id : null;
-    sendNodeSelect(selectedId);
-  }, [sendNodeSelect]);
-
   if (loading) {
     return (
       <div className="w-full h-full flex items-center justify-center text-white bg-[#1a1a1a]">
@@ -962,10 +837,7 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
   ];
 
   return (
-    <div 
-      className="w-full h-full framer-canvas relative"
-      onMouseMove={handleCanvasMouseMove}
-    >
+    <div className="w-full h-full framer-canvas relative">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -973,7 +845,6 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
         onEdgesChange={handleEdgesChange}
         onConnect={handleConnect}
         onEdgesDelete={handleEdgeDelete}
-        onSelectionChange={handleSelectionChange}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView
@@ -983,86 +854,6 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="var(--color-border-default)" />
         <Controls className="react-flow__controls" />
       </ReactFlow>
-
-      {/* Connection Status Indicator */}
-      <div className="absolute top-4 left-4 z-50 flex items-center gap-2">
-        <div 
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-300 ${
-            wsConnected 
-              ? 'bg-[var(--color-success-muted)] text-[var(--color-success)]' 
-              : 'bg-[var(--color-error-muted)] text-[var(--color-error)]'
-          }`}
-          title={wsConnected ? 'Real-time sync active' : 'Offline - changes may not sync'}
-        >
-          {wsConnected ? (
-            <IconWifi size={14} />
-          ) : (
-            <IconWifiOff size={14} />
-          )}
-          <span>{wsConnected ? 'Synced' : 'Offline'}</span>
-        </div>
-        
-        {/* Collaborator count */}
-        {collaborators.length > 0 && (
-          <div className="flex items-center gap-1 px-2 py-1.5 rounded-full bg-[var(--color-bg-elevated)] text-[var(--color-text-secondary)] text-xs">
-            <div className="flex -space-x-1">
-              {collaborators.slice(0, 3).map((collab) => (
-                <div
-                  key={collab.userId}
-                  className="w-5 h-5 rounded-full border-2 border-[var(--color-bg-elevated)]"
-                  style={{ backgroundColor: collab.color }}
-                  title={`User ${collab.userId.slice(0, 8)}`}
-                />
-              ))}
-            </div>
-            {collaborators.length > 3 && (
-              <span className="ml-1">+{collaborators.length - 3}</span>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Collaborator Cursors */}
-      {collaborators.map((collab) => collab.cursor && (
-        <div
-          key={collab.userId}
-          className="absolute pointer-events-none z-40 transition-all duration-75"
-          style={{
-            left: collab.cursor.x,
-            top: collab.cursor.y,
-            transform: 'translate(-2px, -2px)',
-          }}
-        >
-          {/* Cursor arrow */}
-          <svg
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M5.5 3.21V20.79C5.5 21.23 5.99 21.5 6.36 21.26L10.4 18.69L12.11 22.18C12.23 22.42 12.52 22.52 12.75 22.4L14.22 21.64C14.45 21.52 14.55 21.23 14.43 21L12.73 17.53L17.49 16.76C17.94 16.69 18.12 16.14 17.8 15.82L6.21 3.14C5.88 2.78 5.32 2.96 5.32 3.44"
-              fill={collab.color}
-              stroke="white"
-              strokeWidth="1.5"
-            />
-          </svg>
-          {/* User label */}
-          <div
-            className="absolute left-4 top-4 px-2 py-0.5 rounded text-xs text-white whitespace-nowrap"
-            style={{ backgroundColor: collab.color }}
-          >
-            User {collab.userId.slice(0, 6)}
-          </div>
-        </div>
-      ))}
-
-      {/* Controls in top-right corner */}
-      <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
-        <ShareButton projectId={projectId} />
-        <ThemePicker />
-      </div>
 
       {/* Floating Dock at bottom center */}
       <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50">

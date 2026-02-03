@@ -6,7 +6,7 @@ import logging
 from app.config import settings
 from app.core.database import engine, Base
 from app.core.redis import close_redis
-from app.api import auth, projects, nodes, connections, ai, files, websocket
+from app.api import auth, projects, nodes, connections, ai, files
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -52,7 +52,6 @@ app.include_router(nodes.router, prefix="/api/projects", tags=["Nodes"])
 app.include_router(connections.router, prefix="/api/projects", tags=["Connections"])
 app.include_router(ai.router, prefix="/api/ai", tags=["AI Operations"])
 app.include_router(files.router, prefix="/api/files", tags=["Files"])
-app.include_router(websocket.router, prefix="/ws", tags=["WebSocket"])
 
 
 @app.get("/health")

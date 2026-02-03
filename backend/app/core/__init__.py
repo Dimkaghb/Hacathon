@@ -7,7 +7,6 @@ from app.core.security import (
     decode_token,
 )
 from app.core.redis import get_redis, redis_client
-from app.core.websocket_manager import manager
 
 __all__ = [
     "get_db",
@@ -20,5 +19,4 @@ __all__ = [
     "decode_token",
     "get_redis",
     "redis_client",
-    "manager",
 ]

@@ -10,7 +10,6 @@ from app.models.node import Node
 from app.models.connection import Connection
 from app.schemas.connection import ConnectionCreate, ConnectionResponse
 from app.api.deps import verify_project_access
-from app.core.websocket_manager import manager
 
 router = APIRouter()
 
@@ -98,21 +97,6 @@ async def create_connection(
     await db.commit()
     await db.refresh(connection)
 
-    # Broadcast to WebSocket clients
-    await manager.broadcast_to_project(
-        str(project.id),
-        {
-            "type": "connection_created",
-            "connection": {
-                "id": str(connection.id),
-                "source_node_id": str(connection.source_node_id),
-                "target_node_id": str(connection.target_node_id),
-                "source_handle": connection.source_handle,
-                "target_handle": connection.target_handle,
-            },
-        },
-    )
-
     return connection
 
 
@@ -141,12 +125,3 @@ async def delete_connection(
 
     await db.delete(connection)
     await db.commit()
-
-    # Broadcast deletion
-    await manager.broadcast_to_project(
-        str(project.id),
-        {
-            "type": "connection_deleted",
-            "connection_id": str(connection_id),
-        },
-    )
