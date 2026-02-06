@@ -15,6 +15,7 @@ import {
   OnEdgesChange,
   Connection,
   NodeChange,
+  type ReactFlowInstance,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import './styles/canvas.css';
@@ -42,6 +43,9 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
   // Backend state (source of truth)
   const [backendNodes, setBackendNodes] = useState<Node[]>([]);
   const [backendConnections, setBackendConnections] = useState<BackendConnection[]>([]);
+
+  // React Flow instance ref for viewport-aware node placement
+  const reactFlowInstance = useRef<ReactFlowInstance | null>(null);
 
   // Refs to always access latest state values (fixes stale closure in callbacks)
   const backendNodesRef = useRef<Node[]>([]);
@@ -534,12 +538,23 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
   // Handle node creation
   const handleAddNode = async (type: 'image' | 'prompt' | 'video' | 'container' | 'ratio' | 'scene' | 'extension') => {
     try {
-      // Calculate a random position offset to avoid stacking
-      const randomOffset = () => Math.floor(Math.random() * 200) + 50;
+      // Place node at the center of the current viewport with a small random offset
+      const randomOffset = () => Math.floor(Math.random() * 100) - 50;
+      let posX = 300;
+      let posY = 300;
+
+      if (reactFlowInstance.current) {
+        const centerX = window.innerWidth / 2;
+        const centerY = window.innerHeight / 2;
+        const flowCenter = reactFlowInstance.current.screenToFlowPosition({ x: centerX, y: centerY });
+        posX = flowCenter.x + randomOffset();
+        posY = flowCenter.y + randomOffset();
+      }
+
       const newNode = await nodesApi.create(projectId, {
         type,
-        position_x: 100 + randomOffset(),
-        position_y: 100 + randomOffset(),
+        position_x: posX,
+        position_y: posY,
         data: {},
       }, shareToken);
 
@@ -813,6 +828,7 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
         onEdgesChange={handleEdgesChange}
         onConnect={handleConnect}
         onEdgesDelete={handleEdgeDelete}
+        onInit={(instance) => { reactFlowInstance.current = instance; }}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView
