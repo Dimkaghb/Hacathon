@@ -86,25 +86,8 @@ function MainPageContent() {
   };
 
   const loadOrCreateProject = async () => {
-    try {
-      const projects = await projectsApi.list();
-      // Store recent projects (up to 5)
-      setRecentProjects(projects.slice(0, 5).map(p => ({ id: p.id, name: p.name })));
-
-      if (projects.length > 0) {
-        const project = projects[0];
-        setProjectId(project.id);
-        setProjectName(project.name);
-        router.replace(`/main?project=${project.id}`);
-      } else {
-        setShowProjectDialog(true);
-      }
-    } catch (error) {
-      console.error('Failed to load projects:', error);
-      setShowProjectDialog(true);
-    } finally {
-      setLoading(false);
-    }
+    // No project param specified — redirect to dashboard
+    router.replace('/dashboard');
   };
 
   const handleCreateProject = async (name: string) => {

@@ -17,7 +17,7 @@ export default function LoginPage() {
   useEffect(() => {
     // Redirect if already authenticated
     if (isAuthenticated) {
-      router.push('/main');
+      router.push('/dashboard');
     }
   }, [isAuthenticated, router]);
 
@@ -32,7 +32,7 @@ export default function LoginPage() {
         : await login(email, password);
 
       if (success) {
-        router.push('/main');
+        router.push('/dashboard');
       } else {
         setError(isRegister ? 'Registration failed. Email may already be in use.' : 'Invalid email or password.');
       }

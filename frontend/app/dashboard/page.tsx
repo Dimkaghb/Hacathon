@@ -1,0 +1,385 @@
+"use client";
+
+import React, { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/contexts/AuthContext";
+import { projectsApi } from "@/lib/api";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  IconVideo,
+  IconPlus,
+  IconLogout,
+  IconTrash,
+  IconLayoutDashboard,
+  IconFolder,
+} from "@tabler/icons-react";
+import {
+  Sidebar,
+  SidebarBody,
+  SidebarLink,
+  SidebarDivider,
+} from "@/components/ui/sidebar";
+
+interface Project {
+  id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export default function DashboardPage() {
+  const { isAuthenticated, loading: authLoading, user, logout } = useAuth();
+  const router = useRouter();
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.push("/login");
+    }
+  }, [authLoading, isAuthenticated, router]);
+
+  const loadProjects = useCallback(async () => {
+    try {
+      const data = await projectsApi.list();
+      setProjects(data);
+    } catch (error) {
+      console.error("Failed to load projects:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadProjects();
+    }
+  }, [isAuthenticated, loadProjects]);
+
+  const handleCreateProject = async () => {
+    if (!newProjectName.trim()) return;
+    try {
+      await projectsApi.create(newProjectName.trim(), "AI Video Generation Project");
+      setNewProjectName("");
+      setShowCreateDialog(false);
+      loadProjects();
+    } catch (error) {
+      console.error("Failed to create project:", error);
+    }
+  };
+
+  const handleDeleteProject = async (id: string) => {
+    try {
+      await projectsApi.delete(id);
+      setDeleteConfirm(null);
+      loadProjects();
+    } catch (error) {
+      console.error("Failed to delete project:", error);
+    }
+  };
+
+  const handleOpenProject = (id: string) => {
+    router.push(`/main?project=${id}`);
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
+
+  if (authLoading || (!isAuthenticated && !authLoading)) {
+    return (
+      <div className="w-full h-screen overflow-hidden bg-[#0a0a0a] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-[#2a2a2a] border-t-white rounded-full animate-spin" />
+          <span className="text-[#606060] text-sm">Loading...</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-screen w-full overflow-hidden bg-[#0a0a0a]">
+      {/* Sidebar */}
+      <Sidebar open={sidebarOpen} setOpen={setSidebarOpen}>
+        <SidebarBody className="justify-between gap-6">
+          <div className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto">
+            {/* Logo */}
+            <div className="flex items-center gap-2 px-2 py-1 mb-6">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-white to-[#808080] flex items-center justify-center shrink-0">
+                <IconVideo className="w-4 h-4 text-black" />
+              </div>
+              <motion.span
+                animate={{
+                  display: sidebarOpen ? "block" : "none",
+                  opacity: sidebarOpen ? 1 : 0,
+                }}
+                className="text-white font-semibold text-sm whitespace-pre"
+              >
+                Axel
+              </motion.span>
+            </div>
+
+            {/* Dashboard link */}
+            <SidebarLink
+              link={{
+                label: "Dashboard",
+                icon: (
+                  <IconLayoutDashboard className="h-5 w-5 shrink-0 text-white" />
+                ),
+                href: "/dashboard",
+              }}
+              className="bg-[#2a2a2a]"
+            />
+
+            <SidebarDivider />
+
+            {/* New Project */}
+            <SidebarLink
+              link={{
+                label: "New Project",
+                icon: (
+                  <IconPlus className="h-5 w-5 shrink-0 text-[#808080]" />
+                ),
+                onClick: () => setShowCreateDialog(true),
+              }}
+            />
+          </div>
+
+          {/* Bottom section */}
+          <div className="flex flex-col gap-1">
+            <SidebarDivider />
+            <SidebarLink
+              link={{
+                label: "Logout",
+                icon: (
+                  <IconLogout className="h-5 w-5 shrink-0 text-[#808080]" />
+                ),
+                onClick: logout,
+              }}
+            />
+            <SidebarDivider />
+            <SidebarLink
+              link={{
+                label: user?.email || "User",
+                href: "#",
+                icon: (
+                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#3a3a3a] to-[#1a1a1a] flex items-center justify-center shrink-0 text-white text-xs font-medium">
+                    {user?.email?.charAt(0).toUpperCase() || "U"}
+                  </div>
+                ),
+              }}
+            />
+          </div>
+        </SidebarBody>
+      </Sidebar>
+
+      {/* Main content */}
+      <div className="flex-1 overflow-y-auto">
+        {/* Header */}
+        <div className="sticky top-0 z-10 bg-[#0a0a0a] border-b border-[#2a2a2a] px-6 py-4 flex items-center justify-between">
+          <h1 className="text-white text-lg font-medium">Projects</h1>
+          <button
+            onClick={() => setShowCreateDialog(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-white text-black rounded-lg text-sm font-medium hover:bg-[#e0e0e0] transition-colors"
+          >
+            <IconPlus className="w-4 h-4" />
+            New Project
+          </button>
+        </div>
+
+        {/* Project grid */}
+        <div className="p-6">
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-8 h-8 border-2 border-[#2a2a2a] border-t-white rounded-full animate-spin" />
+                <span className="text-[#606060] text-sm">
+                  Loading projects...
+                </span>
+              </div>
+            </div>
+          ) : projects.length === 0 ? (
+            /* Empty state */
+            <div className="flex flex-col items-center justify-center py-20">
+              <div className="w-16 h-16 rounded-2xl bg-[#1a1a1a] border border-[#2a2a2a] flex items-center justify-center mb-4">
+                <IconFolder className="w-8 h-8 text-[#606060]" />
+              </div>
+              <h2 className="text-white text-base font-medium mb-1">
+                No projects yet
+              </h2>
+              <p className="text-[#606060] text-sm mb-6">
+                Create your first AI video generation project
+              </p>
+              <button
+                onClick={() => setShowCreateDialog(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-white text-black rounded-lg text-sm font-medium hover:bg-[#e0e0e0] transition-colors"
+              >
+                <IconPlus className="w-4 h-4" />
+                New Project
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {projects.map((project) => (
+                <motion.div
+                  key={project.id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="group relative bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-4 cursor-pointer transition-all duration-200 hover:border-[#3a3a3a] hover:shadow-[0_0_20px_rgba(255,255,255,0.03)]"
+                  onDoubleClick={() => handleOpenProject(project.id)}
+                >
+                  {/* Card content */}
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-start justify-between">
+                      <h3 className="text-white text-sm font-medium truncate pr-2">
+                        {project.name}
+                      </h3>
+                      {/* Delete button - visible on hover */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteConfirm(project.id);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-[#2a2a2a]"
+                        title="Delete project"
+                      >
+                        <IconTrash className="w-3.5 h-3.5 text-[#606060] hover:text-[#ef4444]" />
+                      </button>
+                    </div>
+                    {project.description && (
+                      <p className="text-[#808080] text-xs line-clamp-2">
+                        {project.description}
+                      </p>
+                    )}
+                    <p className="text-[#606060] text-[11px] mt-1">
+                      {formatDate(project.updated_at)}
+                    </p>
+                  </div>
+
+                  {/* Click hint */}
+                  <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="text-[#606060] text-[10px]">
+                      double-click to open
+                    </span>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Create project dialog */}
+      <AnimatePresence>
+        {showCreateDialog && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+            onClick={() => setShowCreateDialog(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-[#1a1a1a] p-8 rounded-xl border border-[#2a2a2a] max-w-md w-full mx-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 className="text-xl font-medium text-white mb-2">
+                Create New Project
+              </h2>
+              <p className="text-[#606060] text-sm mb-6">
+                Start a new AI video generation workflow
+              </p>
+              <input
+                type="text"
+                placeholder="Project name"
+                value={newProjectName}
+                onChange={(e) => setNewProjectName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newProjectName.trim()) {
+                    handleCreateProject();
+                  }
+                }}
+                className="w-full px-4 py-3 bg-[#0a0a0a] text-white rounded-lg border border-[#2a2a2a] focus:border-[#3a3a3a] focus:outline-none text-sm mb-4 placeholder-[#4a4a4a]"
+                autoFocus
+              />
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowCreateDialog(false);
+                    setNewProjectName("");
+                  }}
+                  className="flex-1 py-3 px-4 bg-[#2a2a2a] text-[#a0a0a0] rounded-lg text-sm font-medium hover:bg-[#333] transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCreateProject}
+                  disabled={!newProjectName.trim()}
+                  className="flex-1 py-3 px-4 bg-white text-black rounded-lg text-sm font-medium hover:bg-[#e0e0e0] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  Create
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete confirmation dialog */}
+      <AnimatePresence>
+        {deleteConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+            onClick={() => setDeleteConfirm(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-[#1a1a1a] p-8 rounded-xl border border-[#2a2a2a] max-w-sm w-full mx-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 className="text-lg font-medium text-white mb-2">
+                Delete Project
+              </h2>
+              <p className="text-[#808080] text-sm mb-6">
+                This action cannot be undone. All nodes and connections in this
+                project will be permanently deleted.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setDeleteConfirm(null)}
+                  className="flex-1 py-3 px-4 bg-[#2a2a2a] text-[#a0a0a0] rounded-lg text-sm font-medium hover:bg-[#333] transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleDeleteProject(deleteConfirm)}
+                  className="flex-1 py-3 px-4 bg-[#ef4444] text-white rounded-lg text-sm font-medium hover:bg-[#dc2626] transition-colors"
+                >
+                  Delete
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
