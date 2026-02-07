@@ -214,6 +214,35 @@ export default function DashboardPage() {
           <div className="overflow-y-auto h-full p-6">
             <h1 className="text-white text-lg font-medium mb-6">Projects</h1>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {/* New Project Card */}
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                onClick={() => setShowCreateDialog(true)}
+                className="group relative bg-[#1a1a1a]/40 backdrop-blur-md border border-[#2a2a2a] rounded-xl overflow-hidden cursor-pointer transition-all duration-200 hover:border-[#3a3a3a] hover:shadow-[0_0_20px_rgba(255,255,255,0.03)] flex items-center justify-center"
+              >
+                {/* Match height structure of project cards */}
+                <div className="h-32"></div>
+                <div className="p-4">
+                  <div className="h-5"></div>
+                  <div className="h-4"></div>
+                </div>
+
+                {/* Centered content overlay */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="flex flex-col items-center gap-2">
+                    <IconPlus className="w-10 h-10 text-[#4a4a4a] group-hover:text-[#6a6a6a] transition-colors" />
+                    <h3 className="text-white text-xs font-medium">
+                      New Project
+                    </h3>
+                    <p className="text-[#606060] text-[10px]">
+                      Click to create
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Existing Projects */}
               {projects.map((project) => (
                 <motion.div
                   key={project.id}
