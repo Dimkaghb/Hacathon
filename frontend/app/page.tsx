@@ -8,6 +8,7 @@ import ProcessSection from "@/components/landing/ProcessSection";
 import FAQSection from "@/components/landing/FAQSection";
 import TypingSection from "@/components/landing/TypingSection";
 import CTASection from "@/components/landing/CTASection";
+import ContactSection from "@/components/landing/ContactSection";
 
 export default function Home() {
   return (
@@ -19,6 +20,7 @@ export default function Home() {
       <ProcessSection />
       <FAQSection />
       <TypingSection />
+      <ContactSection />
       <CTASection />
     </div>
   );
