@@ -214,7 +214,7 @@ export const SidebarLink = ({
       onClick={handleClick}
       data-sidebar-link
       className={cn(
-        "flex items-center justify-start gap-2.5 group/sidebar py-1.5 px-2 rounded-md hover:bg-[#2a2a2a] transition-colors",
+        "flex items-center justify-start gap-2.5 group/sidebar py-2 px-2 rounded-md hover:bg-[#2a2a2a] transition-colors",
         className
       )}
       {...props}
@@ -249,7 +249,7 @@ export const SidebarSection = ({
   const { open, animate } = useSidebar();
 
   return (
-    <div className={cn("flex flex-col gap-1", className)}>
+    <div className={cn("flex flex-col gap-0.5", className)}>
       {title && (
         <motion.span
           animate={{
