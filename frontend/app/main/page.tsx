@@ -15,6 +15,7 @@ import {
   IconVideo,
   IconLogout,
   IconPlus,
+  IconArrowLeft,
 } from "@tabler/icons-react";
 
 function MainPageContent() {
@@ -203,14 +204,27 @@ function MainPageContent() {
               </motion.span>
             </div>
 
+            {/* Back to Dashboard */}
+            {!isSharedAccess && (
+              <SidebarLink
+                link={{
+                  label: "Back to Dashboard",
+                  icon: <IconArrowLeft className="h-5 w-5 shrink-0 text-[#808080]" />,
+                  onClick: () => router.push('/dashboard'),
+                }}
+              />
+            )}
+
             {/* New Project Button */}
-            <SidebarLink
-              link={{
-                label: "New Project",
-                icon: <IconPlus className="h-5 w-5 shrink-0 text-[#808080]" />,
-                onClick: () => setShowProjectDialog(true),
-              }}
-            />
+            {!isSharedAccess && (
+              <SidebarLink
+                link={{
+                  label: "New Project",
+                  icon: <IconPlus className="h-5 w-5 shrink-0 text-[#808080]" />,
+                  onClick: () => setShowProjectDialog(true),
+                }}
+              />
+            )}
 
             <SidebarDivider />
 
