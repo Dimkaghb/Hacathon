@@ -45,15 +45,34 @@ function ScreenshotCapture({ projectId }: { projectId: string }) {
 
   const captureScreenshot = useCallback(async () => {
     const nodes = getNodes();
-    if (nodes.length === 0 || capturingRef.current) return;
+    console.log('[Thumbnail] Attempting capture, nodes:', nodes.length, 'capturing:', capturingRef.current);
+
+    if (nodes.length === 0) {
+      console.log('[Thumbnail] No nodes to capture');
+      return;
+    }
+
+    if (capturingRef.current) {
+      console.log('[Thumbnail] Already capturing, skipping');
+      return;
+    }
 
     const viewportEl = document.querySelector('.react-flow__viewport') as HTMLElement;
-    if (!viewportEl) return;
+    if (!viewportEl) {
+      console.error('[Thumbnail] Viewport element not found');
+      return;
+    }
 
     capturingRef.current = true;
     try {
+      console.log('[Thumbnail] Generating blob...');
       const bounds = getNodesBounds(nodes);
-      const viewport = getViewportForBounds(bounds, SCREENSHOT_WIDTH, SCREENSHOT_HEIGHT, 0.5, 2, 0.1);
+
+      // Calculate viewport with more padding to include all nodes
+      // padding: 0.3 = 30% padding around nodes
+      // minZoom: 0.5 = allow zooming out more
+      // maxZoom: 1.5 = don't zoom in too much
+      const viewport = getViewportForBounds(bounds, SCREENSHOT_WIDTH, SCREENSHOT_HEIGHT, 0.3, 1.5, 0.5);
 
       const blob = await toBlob(viewportEl, {
         backgroundColor: '#1a1a1a',
@@ -66,55 +85,56 @@ function ScreenshotCapture({ projectId }: { projectId: string }) {
         },
       });
 
-      if (!blob) return;
+      if (!blob) {
+        console.error('[Thumbnail] Blob generation failed');
+        return;
+      }
 
-      // Use the dedicated project thumbnail endpoint
+      console.log('[Thumbnail] Blob generated, size:', blob.size, 'bytes');
+
+      // Use the dedicated project thumbnail endpoint (will delete old thumbnail automatically)
       console.log('[Thumbnail] Uploading screenshot for project:', projectId);
       const result = await projectsApi.uploadThumbnail(projectId, blob);
       console.log('[Thumbnail] Upload successful:', result.thumbnail_url);
     } catch (err) {
-      console.warn('[Thumbnail] Screenshot capture failed:', err);
+      console.error('[Thumbnail] Screenshot capture failed:', err);
     } finally {
       capturingRef.current = false;
     }
   }, [projectId, getNodes]);
 
-  // Debounced capture on node/edge count change
+  // Capture on unmount (when user leaves page or closes browser)
   useEffect(() => {
-    const nodes = getNodes();
-    const countKey = String(nodes.length);
-
-    console.log('[Thumbnail] Node count changed:', nodes.length, 'render:', renderCountRef.current);
-
-    if (countKey === prevCountRef.current) return;
-    prevCountRef.current = countKey;
-
-    renderCountRef.current += 1;
-    // Skip first render (initial load)
-    if (renderCountRef.current <= 1) {
-      console.log('[Thumbnail] Skipping initial render');
-      return;
-    }
-
-    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-    console.log('[Thumbnail] Scheduling capture in 2 seconds...');
-    debounceTimerRef.current = setTimeout(() => {
-      captureScreenshot();
-    }, 2000); // Reduced from 5s to 2s
-
+    console.log('[Thumbnail] Screenshot will be captured when you leave this page');
     return () => {
-      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-    };
-  });
-
-  // Capture on unmount (fire-and-forget)
-  useEffect(() => {
-    return () => {
-      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      console.log('[Thumbnail] Page unmounting, capturing screenshot...');
       captureScreenshot();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [captureScreenshot]);
+
+  // Expose capture function globally for manual testing
+  useEffect(() => {
+    (window as any).captureThumbnail = captureScreenshot;
+    console.log('[Thumbnail] Capture function exposed as window.captureThumbnail()');
+    return () => {
+      delete (window as any).captureThumbnail;
+    };
+  }, [captureScreenshot]);
+
+  // Keyboard shortcut: Cmd/Ctrl + S to save thumbnail
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        e.preventDefault();
+        console.log('[Thumbnail] Cmd/Ctrl+S pressed, capturing...');
+        captureScreenshot();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [captureScreenshot]);
 
   return null;
 }
@@ -166,6 +186,7 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
 
   const [loading, setLoading] = useState(true);
   const [showComingSoon, setShowComingSoon] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Ref for shareToken to use in callbacks
   const shareTokenRef = useRef(shareToken);
@@ -988,6 +1009,37 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
         <Controls className="react-flow__controls" />
         <ScreenshotCapture projectId={projectId} />
       </ReactFlow>
+
+      {/* Save button (top right) */}
+      <button
+        onClick={async () => {
+          setIsSaving(true);
+          try {
+            await (window as any).captureThumbnail?.();
+          } catch (err) {
+            console.error('Save failed:', err);
+          } finally {
+            setTimeout(() => setIsSaving(false), 2000);
+          }
+        }}
+        disabled={isSaving}
+        className="fixed top-5 right-5 z-50 px-4 py-2 bg-white text-black text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+        title="Save thumbnail (Cmd/Ctrl + S)"
+      >
+        {isSaving ? (
+          <>
+            <div className="w-3 h-3 border-2 border-black border-t-transparent rounded-full animate-spin" />
+            Saving...
+          </>
+        ) : (
+          <>
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+            </svg>
+            Save
+          </>
+        )}
+      </button>
 
       {/* Floating Dock at bottom center */}
       <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50">

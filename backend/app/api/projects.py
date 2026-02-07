@@ -130,6 +130,14 @@ async def upload_project_thumbnail(
             detail="File must be an image"
         )
 
+    # Delete all old thumbnails for this project
+    deleted_count = await storage_service.delete_project_thumbnails(
+        str(current_user.id),
+        str(project_id)
+    )
+    if deleted_count > 0:
+        print(f"Deleted {deleted_count} old thumbnail(s) for project {project_id}")
+
     # Generate unique object name
     file_id = str(uuid4())
     extension = file.filename.split(".")[-1] if file.filename and "." in file.filename else "png"

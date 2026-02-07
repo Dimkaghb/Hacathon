@@ -172,6 +172,30 @@ class StorageService:
 
         return await loop.run_in_executor(None, _delete)
 
+    async def delete_project_thumbnails(self, user_id: str, project_id: str) -> int:
+        """
+        Delete all thumbnails for a specific project.
+
+        Args:
+            user_id: User ID
+            project_id: Project ID
+
+        Returns:
+            Number of files deleted
+        """
+        loop = asyncio.get_event_loop()
+
+        def _delete_all():
+            prefix = f"thumbnails/{user_id}/{project_id}/"
+            blobs = list(self.bucket.list_blobs(prefix=prefix))
+            count = 0
+            for blob in blobs:
+                blob.delete()
+                count += 1
+            return count
+
+        return await loop.run_in_executor(None, _delete_all)
+
     async def file_exists(self, object_name: str) -> bool:
         """
         Check if a file exists in storage.
