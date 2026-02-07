@@ -1348,15 +1348,15 @@ POST /api/templates/{id}/remix      — Use a community template (increments usa
 
 Add fields to Template model: `is_published`, `published_at`, `remix_count`, `rating`.
 
-#### 5.3.2 — Frontend: Community Tab
+    #### 5.3.2 — Frontend: Community Tab
 
-**File:** `frontend/components/canvas/panels/TemplateBrowserPanel.tsx` (extend)
+    **File:** `frontend/components/canvas/panels/TemplateBrowserPanel.tsx` (extend)
 
-Add tab: "System" | "My Templates" | "Community" with sort/filter and rating.
+    Add tab: "System" | "My Templates" | "Community" with sort/filter and rating.
 
-#### 5.3.3 — Credit Rewards for Template Creators
+    #### 5.3.3 — Credit Rewards for Template Creators
 
-**File:** `backend/app/services/subscription_service.py` (extend)
+    **File:** `backend/app/services/subscription_service.py` (extend)
 
 Award 1 credit to creator when their published template is remixed.
 

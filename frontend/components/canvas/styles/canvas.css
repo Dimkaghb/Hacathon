@@ -8,9 +8,6 @@
 }
 
 /* React Flow specific overrides */
-.react-flow__viewport {
-  background: #0f0f0f;
-}
 
 .react-flow__attribution {
   display: none;
