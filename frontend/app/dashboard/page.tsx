@@ -13,6 +13,7 @@ import {
   IconLayoutDashboard,
   IconFolder,
 } from "@tabler/icons-react";
+import { DitherShader } from "@/components/ui/dither-shader";
 import {
   Sidebar,
   SidebarBody,
@@ -184,51 +185,49 @@ export default function DashboardPage() {
       </Sidebar>
 
       {/* Main content */}
-      <div className="flex-1 overflow-y-auto">
-        {/* Header */}
-        <div className="sticky top-0 z-10 bg-[#0a0a0a] border-b border-[#2a2a2a] px-6 py-4 flex items-center justify-between">
-          <h1 className="text-white text-lg font-medium">Projects</h1>
-          <button
-            onClick={() => setShowCreateDialog(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-white text-black rounded-lg text-sm font-medium hover:bg-[#e0e0e0] transition-colors"
-          >
-            <IconPlus className="w-4 h-4" />
-            New Project
-          </button>
-        </div>
-
-        {/* Project grid */}
-        <div className="p-6">
-          {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="flex flex-col items-center gap-3">
-                <div className="w-8 h-8 border-2 border-[#2a2a2a] border-t-white rounded-full animate-spin" />
-                <span className="text-[#606060] text-sm">
-                  Loading projects...
-                </span>
-              </div>
+      <div className="flex-1 overflow-hidden">
+        {loading ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-8 h-8 border-2 border-[#2a2a2a] border-t-white rounded-full animate-spin" />
+              <span className="text-[#606060] text-sm">
+                Loading projects...
+              </span>
             </div>
-          ) : projects.length === 0 ? (
-            /* Empty state */
-            <div className="flex flex-col items-center justify-center py-20">
-              <div className="w-16 h-16 rounded-2xl bg-[#1a1a1a] border border-[#2a2a2a] flex items-center justify-center mb-4">
-                <IconFolder className="w-8 h-8 text-[#606060]" />
-              </div>
-              <h2 className="text-white text-base font-medium mb-1">
-                No projects yet
-              </h2>
-              <p className="text-[#606060] text-sm mb-6">
-                Create your first AI video generation project
-              </p>
+          </div>
+        ) : projects.length === 0 ? (
+          /* Empty state — full area dithered background with centered CTA */
+          <div className="relative flex items-center justify-center h-full">
+            {/* Dithered background */}
+            <div className="absolute inset-0">
+              <DitherShader
+                src="https://images.unsplash.com/photo-1493246507139-91e8fad9978e?q=80&w=2670&auto=format&fit=crop"
+                gridSize={2}
+                ditherMode="bayer"
+                colorMode="grayscale"
+                invert={false}
+                animated={false}
+                animationSpeed={0.02}
+                primaryColor="#000000"
+                secondaryColor="#f5f5f5"
+                threshold={0.5}
+                className="h-full w-full opacity-30"
+              />
+            </div>
+            {/* Centered button */}
+            <div className="relative z-10 flex flex-col items-center">
               <button
                 onClick={() => setShowCreateDialog(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-white text-black rounded-lg text-sm font-medium hover:bg-[#e0e0e0] transition-colors"
+                className="flex items-center gap-2 px-6 py-3 bg-white text-black rounded-lg text-sm font-medium hover:bg-[#e0e0e0] transition-colors"
               >
                 <IconPlus className="w-4 h-4" />
-                New Project
+                Create Project
               </button>
             </div>
-          ) : (
+          </div>
+        ) : (
+          <div className="overflow-y-auto h-full p-6">
+            <h1 className="text-white text-lg font-medium mb-6">Projects</h1>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {projects.map((project) => (
                 <motion.div
@@ -275,8 +274,8 @@ export default function DashboardPage() {
                 </motion.div>
               ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Create project dialog */}
