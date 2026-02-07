@@ -50,6 +50,7 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
   // Refs to always access latest state values (fixes stale closure in callbacks)
   const backendNodesRef = useRef<Node[]>([]);
   const backendConnectionsRef = useRef<BackendConnection[]>([]);
+  const edgesRef = useRef<Edge[]>([]);
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -59,6 +60,10 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
   useEffect(() => {
     backendConnectionsRef.current = backendConnections;
   }, [backendConnections]);
+
+  useEffect(() => {
+    edgesRef.current = edges;
+  }, [edges]);
 
   // Job polling - use ref to avoid recreating callbacks
   const jobPollingRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
@@ -167,39 +172,39 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
     }));
   };
 
-  // Update video/extension node connected data - accepts optional connections to avoid stale closure
+  // Update video/extension node connected data - accepts optional overrides, falls back to refs
   const updateVideoNodeConnectedData = useCallback((
-    nodeId: string, 
-    nodesOverride?: Node[], 
+    nodeId: string,
+    nodesOverride?: Node[],
     connectionsOverride?: BackendConnection[]
   ) => {
-    const nodesToUse = nodesOverride || backendNodes;
-    const connectionsToUse = connectionsOverride || backendConnections;
-    
+    const nodesToUse = nodesOverride || backendNodesRef.current;
+    const connectionsToUse = connectionsOverride || backendConnectionsRef.current;
+
     console.log('[updateVideoNodeConnectedData] NodeId:', nodeId);
     console.log('[updateVideoNodeConnectedData] Nodes count:', nodesToUse.length);
     console.log('[updateVideoNodeConnectedData] Connections count:', connectionsToUse.length);
-    
+
     const { prompt, imageUrl, videoData } = getConnectedData(nodeId, nodesToUse, connectionsToUse);
-    
+
     console.log('[updateVideoNodeConnectedData] Result:', { prompt: prompt?.substring(0, 30), imageUrl: imageUrl?.substring(0, 30) });
-    
+
     setNodes(nds =>
       nds.map(n => {
         if (n.id !== nodeId) return n;
-        
+
         if (n.type === 'video') {
           return { ...n, data: { ...n.data, connectedPrompt: prompt, connectedImageUrl: imageUrl } };
         }
-        
+
         if (n.type === 'extension') {
           return { ...n, data: { ...n.data, connectedPrompt: prompt, connectedVideo: videoData } };
         }
-        
+
         return n;
       })
     );
-  }, [backendNodes, backendConnections]);
+  }, []);
 
   // Update node data in both backend and React Flow state
   const updateNodeData = useCallback((
@@ -432,33 +437,34 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
     onEdgesChange(changes);
   }, [onEdgesChange]);
 
-  // Handle connection creation
+  // Handle connection creation — optimistic update with ref-based validation
   const handleConnect = useCallback(async (connection: Connection) => {
     if (!connection.source || !connection.target) return;
 
     // Validate: no self-connections
     if (connection.source === connection.target) return;
 
+    // Use refs to get latest state (avoids stale closure bugs)
+    const currentNodes = backendNodesRef.current;
+    const currentEdges = edgesRef.current;
+
     // Get source and target nodes for validation
-    const sourceNode = backendNodes.find(n => n.id === connection.source);
-    const targetNode = backendNodes.find(n => n.id === connection.target);
-    
+    const sourceNode = currentNodes.find(n => n.id === connection.source);
+    const targetNode = currentNodes.find(n => n.id === connection.target);
+
     if (!sourceNode || !targetNode) return;
 
-    // Allow flexible connections - any source can connect to any target handle
-    // The video node will use whatever data is available from connected nodes
-
     // Validate: no duplicate connections to the same handle
-    const exists = edges.some(
-      e => e.source === connection.source && 
+    const exists = currentEdges.some(
+      e => e.source === connection.source &&
            e.target === connection.target &&
            e.sourceHandle === connection.sourceHandle &&
            e.targetHandle === connection.targetHandle
     );
     if (exists) return;
 
-    // Validate: no multiple connections to the same input handle (each video input accepts one connection)
-    const handleAlreadyConnected = edges.some(
+    // Validate: no multiple connections to the same input handle
+    const handleAlreadyConnected = currentEdges.some(
       e => e.target === connection.target && e.targetHandle === connection.targetHandle
     );
     if (handleAlreadyConnected) {
@@ -466,30 +472,42 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
       return;
     }
 
+    // Add edge OPTIMISTICALLY before the API call so it renders immediately
+    const tempId = `temp-${Date.now()}`;
+    const tempEdge: Edge = {
+      id: tempId,
+      source: connection.source,
+      target: connection.target,
+      sourceHandle: connection.sourceHandle || null,
+      targetHandle: connection.targetHandle || null,
+      type: 'custom',
+      data: { backendId: tempId },
+    };
+    setEdges(eds => addEdge(tempEdge, eds));
+
     try {
-      // Create in backend
+      // Persist to backend
       const newConnection = await connectionsApi.create(projectId, {
         source_node_id: connection.source,
         target_node_id: connection.target,
         source_handle: connection.sourceHandle || undefined,
         target_handle: connection.targetHandle || undefined,
-      }, shareToken);
+      }, shareTokenRef.current);
 
-      // Add to React Flow
-      const newEdge: Edge = {
+      // Replace temp edge with the real backend-persisted edge
+      setEdges(eds => eds.map(e => e.id === tempId ? {
+        ...e,
         id: newConnection.id,
         source: newConnection.source_node_id,
         target: newConnection.target_node_id,
         sourceHandle: newConnection.source_handle || null,
         targetHandle: newConnection.target_handle || null,
-        type: 'custom',
         data: { backendId: newConnection.id },
-      };
+      } : e));
 
-      setEdges(eds => addEdge(newEdge, eds));
-      
-      // Create updated connections list for immediate use (avoid stale closure)
-      const updatedConnections = [...backendConnections, newConnection as BackendConnection];
+      // Update backend connections state using ref for latest value
+      const latestConnections = backendConnectionsRef.current;
+      const updatedConnections = [...latestConnections, newConnection as BackendConnection];
       setBackendConnections(updatedConnections);
 
       console.log('[handleConnect] Connection created:', {
@@ -497,43 +515,44 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
         target: connection.target,
         sourceType: sourceNode.type,
         targetType: targetNode.type,
-        sourceHandle: connection.sourceHandle,
-        targetHandle: connection.targetHandle
       });
 
-      // Update video/extension nodes if affected - pass updated connections to avoid stale closure
+      // Update video/extension nodes if affected
       if (targetNode.type === 'video' || targetNode.type === 'extension') {
-        console.log('[handleConnect] Updating connected data for target:', targetNode.id);
-        updateVideoNodeConnectedData(connection.target, backendNodes, updatedConnections);
+        const latestNodes = backendNodesRef.current;
+        updateVideoNodeConnectedData(connection.target, latestNodes, updatedConnections);
       }
     } catch (error) {
       console.error('Failed to create connection:', error);
+      // Remove the optimistic edge on failure
+      setEdges(eds => eds.filter(e => e.id !== tempId));
     }
-  }, [projectId, edges, backendNodes, backendConnections, updateVideoNodeConnectedData]);
+  }, [projectId, updateVideoNodeConnectedData]);
 
-  // Handle edge delete
+  // Handle edge delete — uses refs to avoid stale closures
   const handleEdgeDelete = useCallback(async (edgesToDelete: Edge[]) => {
-    // Track updated connections to avoid stale closure
-    let currentConnections = [...backendConnections];
-    
+    let currentConnections = [...backendConnectionsRef.current];
+    const currentNodes = backendNodesRef.current;
+
     for (const edge of edgesToDelete) {
+      // Skip temp edges that haven't been persisted yet
+      if (edge.id.startsWith('temp-')) continue;
+
       try {
-        await connectionsApi.delete(projectId, edge.id, shareToken);
-        
-        // Update connections list
+        await connectionsApi.delete(projectId, edge.id, shareTokenRef.current);
+
         currentConnections = currentConnections.filter(c => c.id !== edge.id);
         setBackendConnections(currentConnections);
 
-        // Update video/extension nodes if affected - pass updated connections to avoid stale closure
-        const targetNode = backendNodes.find(n => n.id === edge.target);
+        const targetNode = currentNodes.find(n => n.id === edge.target);
         if (targetNode && (targetNode.type === 'video' || targetNode.type === 'extension')) {
-          updateVideoNodeConnectedData(edge.target, backendNodes, currentConnections);
+          updateVideoNodeConnectedData(edge.target, currentNodes, currentConnections);
         }
       } catch (error) {
         console.error('Failed to delete connection:', error);
       }
     }
-  }, [projectId, backendNodes, backendConnections, updateVideoNodeConnectedData]);
+  }, [projectId, updateVideoNodeConnectedData]);
 
   // Handle node creation
   const handleAddNode = async (type: 'image' | 'prompt' | 'video' | 'container' | 'ratio' | 'scene' | 'extension') => {
