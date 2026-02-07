@@ -10,9 +10,9 @@ import {
   IconLogout,
   IconTrash,
   IconSettings,
+  IconVideo,
 } from "@tabler/icons-react";
 import { DitherShader } from "@/components/ui/dither-shader";
-import { Node as BackendNode } from "@/lib/types/node";
 
 interface Project {
   id: string;
@@ -23,85 +23,14 @@ interface Project {
   updated_at: string;
 }
 
-// Color mapping for mini node type indicators
-const NODE_COLORS: Record<string, string> = {
-  prompt: "#6366f1",
-  image: "#22c55e",
-  video: "#ef4444",
-  extension: "#f59e0b",
-  container: "#3b82f6",
-  ratio: "#8b5cf6",
-  scene: "#ec4899",
-};
-
-function ProjectThumbnail({ projectId }: { projectId: string }) {
-  const [nodes, setNodes] = useState<BackendNode[] | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    projectsApi.get(projectId).then((data) => {
-      if (!cancelled) setNodes(data.nodes || []);
-    }).catch(() => {});
-    return () => { cancelled = true; };
-  }, [projectId]);
-
-  if (!nodes || nodes.length === 0) {
-    return (
-      <div className="w-full h-full flex items-center justify-center">
-        <span className="text-[#3a3a3a] text-[10px]">Empty canvas</span>
-      </div>
-    );
-  }
-
-  // Calculate bounding box of all nodes to fit them into the thumbnail
-  const xs = nodes.map((n) => n.position_x);
-  const ys = nodes.map((n) => n.position_y);
-  const minX = Math.min(...xs);
-  const minY = Math.min(...ys);
-  const maxX = Math.max(...xs);
-  const maxY = Math.max(...ys);
-  const rangeX = maxX - minX || 1;
-  const rangeY = maxY - minY || 1;
-  // Add padding so nodes aren't flush against edges
-  const pad = 16;
-
+// Empty placeholder thumbnail
+function EmptyThumbnail() {
   return (
-    <div className="relative w-full h-full overflow-hidden">
-      {/* Dot grid background mimicking canvas */}
-      <div
-        className="absolute inset-0 opacity-20"
-        style={{
-          backgroundImage: "radial-gradient(circle, #3a3a3a 0.5px, transparent 0.5px)",
-          backgroundSize: "8px 8px",
-        }}
-      />
-      {nodes.map((node) => {
-        // Normalize positions into the thumbnail space
-        const x = pad + ((node.position_x - minX) / rangeX) * (100 - pad * 2);
-        const y = pad + ((node.position_y - minY) / rangeY) * (100 - pad * 2);
-        const color = NODE_COLORS[node.type] || "#4a4a4a";
-
-        return (
-          <div
-            key={node.id}
-            className="absolute rounded-[3px] border"
-            style={{
-              left: `${x}%`,
-              top: `${y}%`,
-              width: "28px",
-              height: "16px",
-              backgroundColor: `${color}15`,
-              borderColor: `${color}40`,
-              transform: "translate(-50%, -50%)",
-            }}
-          >
-            <div
-              className="absolute top-0.5 left-0.5 w-1 h-1 rounded-full"
-              style={{ backgroundColor: color }}
-            />
-          </div>
-        );
-      })}
+    <div className="w-full h-full flex items-center justify-center bg-[#0f0f0f]/60">
+      <div className="flex flex-col items-center gap-2 opacity-30">
+        <IconVideo className="w-8 h-8 text-[#606060]" />
+        <span className="text-[#3a3a3a] text-[10px]">No preview</span>
+      </div>
     </div>
   );
 }
@@ -294,22 +223,28 @@ export default function DashboardPage() {
                   onDoubleClick={() => handleOpenProject(project.id)}
                 >
                   {/* Thumbnail preview */}
-                  <div className="h-32 bg-[#0f0f0f]/60 border-b border-[#2a2a2a]">
+                  <div className="h-32 bg-[#0f0f0f]/60 border-b border-[#2a2a2a] relative">
                     {project.thumbnail_url ? (
                       <img
                         src={project.thumbnail_url}
                         alt={project.name}
                         className="w-full h-full object-cover"
                         onError={(e) => {
-                          // Fall back to synthetic thumbnail if image fails to load
+                          // Fall back to empty placeholder if image fails to load
                           (e.target as HTMLImageElement).style.display = 'none';
-                          (e.target as HTMLImageElement).parentElement!.querySelector('.fallback-thumbnail')?.classList.remove('hidden');
+                          const parent = (e.target as HTMLImageElement).parentElement;
+                          if (parent) {
+                            const placeholder = document.createElement('div');
+                            placeholder.className = 'w-full h-full';
+                            parent.appendChild(placeholder);
+                            const root = parent.ownerDocument.createElement('div');
+                            placeholder.appendChild(root);
+                          }
                         }}
                       />
-                    ) : null}
-                    <div className={project.thumbnail_url ? 'hidden fallback-thumbnail' : 'w-full h-full'}>
-                      <ProjectThumbnail projectId={project.id} />
-                    </div>
+                    ) : (
+                      <EmptyThumbnail />
+                    )}
                   </div>
 
                   {/* Card info */}

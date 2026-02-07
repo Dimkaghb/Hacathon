@@ -68,11 +68,12 @@ function ScreenshotCapture({ projectId }: { projectId: string }) {
 
       if (!blob) return;
 
-      const file = new File([blob], `thumbnail-${projectId}.png`, { type: 'image/png' });
-      const uploaded = await filesApi.uploadDirect(file);
-      await projectsApi.update(projectId, { thumbnail_url: uploaded.url });
+      // Use the dedicated project thumbnail endpoint
+      console.log('[Thumbnail] Uploading screenshot for project:', projectId);
+      const result = await projectsApi.uploadThumbnail(projectId, blob);
+      console.log('[Thumbnail] Upload successful:', result.thumbnail_url);
     } catch (err) {
-      console.warn('Screenshot capture failed:', err);
+      console.warn('[Thumbnail] Screenshot capture failed:', err);
     } finally {
       capturingRef.current = false;
     }
@@ -82,17 +83,24 @@ function ScreenshotCapture({ projectId }: { projectId: string }) {
   useEffect(() => {
     const nodes = getNodes();
     const countKey = String(nodes.length);
+
+    console.log('[Thumbnail] Node count changed:', nodes.length, 'render:', renderCountRef.current);
+
     if (countKey === prevCountRef.current) return;
     prevCountRef.current = countKey;
 
     renderCountRef.current += 1;
-    // Skip first 2 renders (initial load)
-    if (renderCountRef.current <= 2) return;
+    // Skip first render (initial load)
+    if (renderCountRef.current <= 1) {
+      console.log('[Thumbnail] Skipping initial render');
+      return;
+    }
 
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    console.log('[Thumbnail] Scheduling capture in 2 seconds...');
     debounceTimerRef.current = setTimeout(() => {
       captureScreenshot();
-    }, 5000);
+    }, 2000); // Reduced from 5s to 2s
 
     return () => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);

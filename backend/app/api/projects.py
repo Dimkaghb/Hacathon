@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from typing import List, Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from app.core.database import get_db
 from app.models.user import User
@@ -16,6 +16,7 @@ from app.schemas.project import (
     ShareLinkResponse,
 )
 from app.api.deps import get_current_user, verify_project_access
+from app.services.storage_service import storage_service
 
 router = APIRouter()
 
@@ -111,6 +112,48 @@ async def update_project(
     await db.commit()
     await db.refresh(project)
     return project
+
+
+@router.post("/{project_id}/thumbnail")
+async def upload_project_thumbnail(
+    project_id: UUID,
+    file: UploadFile = File(...),
+    project: Project = Depends(verify_project_access),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Upload a thumbnail image for a project"""
+    # Validate file type
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File must be an image"
+        )
+
+    # Generate unique object name
+    file_id = str(uuid4())
+    extension = file.filename.split(".")[-1] if file.filename and "." in file.filename else "png"
+    object_name = f"thumbnails/{current_user.id}/{project_id}/{file_id}.{extension}"
+
+    # Read file content
+    content = await file.read()
+
+    # Upload to storage (returns signed URL valid for 7 days)
+    thumbnail_url = await storage_service.upload_file(
+        file_data=content,
+        object_name=object_name,
+        content_type=file.content_type,
+    )
+
+    # Update project with the signed URL
+    project.thumbnail_url = thumbnail_url
+    await db.commit()
+    await db.refresh(project)
+
+    return {
+        "thumbnail_url": thumbnail_url,
+        "object_name": object_name,
+    }
 
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)

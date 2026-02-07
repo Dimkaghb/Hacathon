@@ -229,6 +229,27 @@ export const projectsApi = {
     });
   },
 
+  uploadThumbnail: async (projectId: string, imageBlob: Blob) => {
+    const formData = new FormData();
+    formData.append('file', imageBlob, 'thumbnail.png');
+
+    const accessToken = tokenStorage.getAccessToken();
+    const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/thumbnail`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'ngrok-skip-browser-warning': 'true',
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new ApiError(response.status, response.statusText, await response.json().catch(() => ({})));
+    }
+
+    return response.json();
+  },
+
   // Sharing methods
   enableSharing: async (projectId: string) => {
     return apiFetch<{

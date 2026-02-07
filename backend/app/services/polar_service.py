@@ -33,6 +33,7 @@ class PolarService:
         email: str,
     ) -> Dict[str, str]:
         """Create a Polar checkout session for the Pro plan."""
+        # Polar SDK expects 'products' as an array of product IDs
         checkout = self.client.checkouts.create(
             request={
                 "products": [settings.POLAR_PRO_PRODUCT_ID],
@@ -41,6 +42,7 @@ class PolarService:
                 "metadata": {"user_id": user_id},
             }
         )
+
         return {
             "checkout_url": checkout.url,
             "checkout_id": str(checkout.id),
