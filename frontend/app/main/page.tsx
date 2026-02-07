@@ -183,7 +183,7 @@ function MainPageContent() {
   return (
     <div className="flex h-screen w-full overflow-hidden bg-[#0f0f0f]">
       {/* Sidebar */}
-      <Sidebar open={sidebarOpen} setOpen={setSidebarOpen}>
+      <Sidebar open={sidebarOpen} setOpen={setSidebarOpen} overlay>
         <SidebarBody className="justify-between gap-6">
           {/* Top section */}
           <div className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto">

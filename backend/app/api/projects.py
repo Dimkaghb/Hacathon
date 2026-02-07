@@ -105,6 +105,8 @@ async def update_project(
         project.description = project_data.description
     if project_data.canvas_state is not None:
         project.canvas_state = project_data.canvas_state
+    if project_data.thumbnail_url is not None:
+        project.thumbnail_url = project_data.thumbnail_url
 
     await db.commit()
     await db.refresh(project)

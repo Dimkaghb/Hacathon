@@ -25,7 +25,9 @@ class Project(Base):
     # Sharing
     share_enabled = Column(Boolean, default=False)
     share_token = Column(String(64), unique=True, nullable=True, index=True)
-    
+
+    thumbnail_url = Column(String(2048), nullable=True)
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

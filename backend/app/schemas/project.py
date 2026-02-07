@@ -13,6 +13,7 @@ class ProjectUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     canvas_state: Optional[Dict[str, Any]] = None
+    thumbnail_url: Optional[str] = None
 
 
 class NodeSummary(BaseModel):
@@ -46,6 +47,7 @@ class ProjectResponse(BaseModel):
     canvas_state: Dict[str, Any]
     share_enabled: bool = False
     share_token: Optional[str] = None
+    thumbnail_url: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

@@ -1,32 +1,109 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { projectsApi } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  IconVideo,
   IconPlus,
   IconLogout,
   IconTrash,
-  IconLayoutDashboard,
-  IconFolder,
+  IconSettings,
 } from "@tabler/icons-react";
 import { DitherShader } from "@/components/ui/dither-shader";
-import {
-  Sidebar,
-  SidebarBody,
-  SidebarLink,
-  SidebarDivider,
-} from "@/components/ui/sidebar";
+import { Node as BackendNode } from "@/lib/types/node";
 
 interface Project {
   id: string;
   name: string;
   description: string | null;
+  thumbnail_url: string | null;
   created_at: string;
   updated_at: string;
+}
+
+// Color mapping for mini node type indicators
+const NODE_COLORS: Record<string, string> = {
+  prompt: "#6366f1",
+  image: "#22c55e",
+  video: "#ef4444",
+  extension: "#f59e0b",
+  container: "#3b82f6",
+  ratio: "#8b5cf6",
+  scene: "#ec4899",
+};
+
+function ProjectThumbnail({ projectId }: { projectId: string }) {
+  const [nodes, setNodes] = useState<BackendNode[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    projectsApi.get(projectId).then((data) => {
+      if (!cancelled) setNodes(data.nodes || []);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [projectId]);
+
+  if (!nodes || nodes.length === 0) {
+    return (
+      <div className="w-full h-full flex items-center justify-center">
+        <span className="text-[#3a3a3a] text-[10px]">Empty canvas</span>
+      </div>
+    );
+  }
+
+  // Calculate bounding box of all nodes to fit them into the thumbnail
+  const xs = nodes.map((n) => n.position_x);
+  const ys = nodes.map((n) => n.position_y);
+  const minX = Math.min(...xs);
+  const minY = Math.min(...ys);
+  const maxX = Math.max(...xs);
+  const maxY = Math.max(...ys);
+  const rangeX = maxX - minX || 1;
+  const rangeY = maxY - minY || 1;
+  // Add padding so nodes aren't flush against edges
+  const pad = 16;
+
+  return (
+    <div className="relative w-full h-full overflow-hidden">
+      {/* Dot grid background mimicking canvas */}
+      <div
+        className="absolute inset-0 opacity-20"
+        style={{
+          backgroundImage: "radial-gradient(circle, #3a3a3a 0.5px, transparent 0.5px)",
+          backgroundSize: "8px 8px",
+        }}
+      />
+      {nodes.map((node) => {
+        // Normalize positions into the thumbnail space
+        const x = pad + ((node.position_x - minX) / rangeX) * (100 - pad * 2);
+        const y = pad + ((node.position_y - minY) / rangeY) * (100 - pad * 2);
+        const color = NODE_COLORS[node.type] || "#4a4a4a";
+
+        return (
+          <div
+            key={node.id}
+            className="absolute rounded-[3px] border"
+            style={{
+              left: `${x}%`,
+              top: `${y}%`,
+              width: "28px",
+              height: "16px",
+              backgroundColor: `${color}15`,
+              borderColor: `${color}40`,
+              transform: "translate(-50%, -50%)",
+            }}
+          >
+            <div
+              className="absolute top-0.5 left-0.5 w-1 h-1 rounded-full"
+              style={{ backgroundColor: color }}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 export default function DashboardPage() {
@@ -34,10 +111,11 @@ export default function DashboardPage() {
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -61,6 +139,16 @@ export default function DashboardPage() {
       loadProjects();
     }
   }, [isAuthenticated, loadProjects]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as globalThis.Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const handleCreateProject = async () => {
     if (!newProjectName.trim()) return;
@@ -109,121 +197,89 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-[#0a0a0a]">
-      {/* Sidebar */}
-      <Sidebar open={sidebarOpen} setOpen={setSidebarOpen}>
-        <SidebarBody className="justify-between gap-6">
-          <div className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto">
-            {/* Logo */}
-            <div className="flex items-center gap-2 px-2 py-1 mb-6">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-white to-[#808080] flex items-center justify-center shrink-0">
-                <IconVideo className="w-4 h-4 text-black" />
+    <div className="relative h-screen w-full overflow-hidden bg-[#0a0a0a]">
+      {/* Dithered background — always visible */}
+      <div className="absolute inset-0 pointer-events-none">
+        <DitherShader
+          src="https://images.unsplash.com/photo-1493246507139-91e8fad9978e?q=80&w=2670&auto=format&fit=crop"
+          gridSize={2}
+          ditherMode="bayer"
+          colorMode="grayscale"
+          invert={false}
+          animated={false}
+          animationSpeed={0.02}
+          primaryColor="#000000"
+          secondaryColor="#f5f5f5"
+          threshold={0.5}
+          className="h-full w-full opacity-30"
+        />
+      </div>
+
+      {/* User avatar dropdown */}
+      <div ref={dropdownRef} className="fixed top-5 right-5 z-50">
+        <button
+          onClick={() => setDropdownOpen((prev) => !prev)}
+          className="w-9 h-9 rounded-full bg-gradient-to-br from-[#3a3a3a] to-[#1a1a1a] border border-[#2a2a2a] flex items-center justify-center text-white text-sm font-medium hover:border-[#4a4a4a] transition-colors"
+        >
+          {user?.email?.charAt(0).toUpperCase() || "U"}
+        </button>
+
+        <AnimatePresence>
+          {dropdownOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -4, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -4, scale: 0.95 }}
+              transition={{ duration: 0.15 }}
+              className="absolute right-0 mt-2 w-56 bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl shadow-xl overflow-hidden"
+            >
+              <div className="px-4 py-3 border-b border-[#2a2a2a]">
+                <p className="text-white text-sm font-medium truncate">
+                  {user?.email || "User"}
+                </p>
               </div>
-              <motion.span
-                animate={{
-                  display: sidebarOpen ? "block" : "none",
-                  opacity: sidebarOpen ? 1 : 0,
-                }}
-                className="text-white font-semibold text-sm whitespace-pre"
-              >
-                Axel
-              </motion.span>
-            </div>
+              <div className="py-1">
+                <button
+                  onClick={() => setDropdownOpen(false)}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-[#a0a0a0] hover:text-white hover:bg-[#2a2a2a] transition-colors text-sm"
+                >
+                  <IconSettings className="w-4 h-4" />
+                  Settings
+                </button>
+                <button
+                  onClick={() => {
+                    setDropdownOpen(false);
+                    logout();
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-[#a0a0a0] hover:text-[#ef4444] hover:bg-[#2a2a2a] transition-colors text-sm"
+                >
+                  <IconLogout className="w-4 h-4" />
+                  Logout
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
 
-            {/* Dashboard link */}
-            <SidebarLink
-              link={{
-                label: "Dashboard",
-                icon: (
-                  <IconLayoutDashboard className="h-5 w-5 shrink-0 text-white" />
-                ),
-                href: "/dashboard",
-              }}
-              className="bg-[#2a2a2a]"
-            />
-
-            <SidebarDivider />
-
-            {/* New Project */}
-            <SidebarLink
-              link={{
-                label: "New Project",
-                icon: (
-                  <IconPlus className="h-5 w-5 shrink-0 text-[#808080]" />
-                ),
-                onClick: () => setShowCreateDialog(true),
-              }}
-            />
-          </div>
-
-          {/* Bottom section */}
-          <div className="flex flex-col gap-1">
-            <SidebarDivider />
-            <SidebarLink
-              link={{
-                label: "Logout",
-                icon: (
-                  <IconLogout className="h-5 w-5 shrink-0 text-[#808080]" />
-                ),
-                onClick: logout,
-              }}
-            />
-            <SidebarDivider />
-            <SidebarLink
-              link={{
-                label: user?.email || "User",
-                href: "#",
-                icon: (
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#3a3a3a] to-[#1a1a1a] flex items-center justify-center shrink-0 text-white text-xs font-medium">
-                    {user?.email?.charAt(0).toUpperCase() || "U"}
-                  </div>
-                ),
-              }}
-            />
-          </div>
-        </SidebarBody>
-      </Sidebar>
-
-      {/* Main content */}
-      <div className="flex-1 overflow-hidden">
+      {/* Main content — layered above dithered bg */}
+      <div className="relative z-10 h-full">
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <div className="flex flex-col items-center gap-3">
               <div className="w-8 h-8 border-2 border-[#2a2a2a] border-t-white rounded-full animate-spin" />
-              <span className="text-[#606060] text-sm">
-                Loading projects...
-              </span>
+              <span className="text-[#606060] text-sm">Loading projects...</span>
             </div>
           </div>
         ) : projects.length === 0 ? (
-          /* Empty state — full area dithered background with centered CTA */
-          <div className="relative flex items-center justify-center h-full">
-            {/* Dithered background */}
-            <div className="absolute inset-0">
-              <DitherShader
-                src="https://images.unsplash.com/photo-1493246507139-91e8fad9978e?q=80&w=2670&auto=format&fit=crop"
-                gridSize={2}
-                ditherMode="bayer"
-                colorMode="grayscale"
-                invert={false}
-                animated={false}
-                animationSpeed={0.02}
-                primaryColor="#000000"
-                secondaryColor="#f5f5f5"
-                threshold={0.5}
-                className="h-full w-full opacity-30"
-              />
-            </div>
-            {/* Centered button */}
-            <div className="relative z-10 flex flex-col items-center">
-              <button
-                onClick={() => setShowCreateDialog(true)}
-                className="flex items-center gap-2 px-6 py-3 bg-white text-black rounded-lg text-sm font-medium hover:bg-[#e0e0e0] transition-colors"
-              >
-                <IconPlus className="w-4 h-4" />
-                Create Project
-              </button>
-            </div>
+          <div className="flex items-center justify-center h-full">
+            <button
+              onClick={() => setShowCreateDialog(true)}
+              className="flex items-center gap-2 px-6 py-3 bg-white text-black rounded-lg text-sm font-medium hover:bg-[#e0e0e0] transition-colors"
+            >
+              <IconPlus className="w-4 h-4" />
+              Create Project
+            </button>
           </div>
         ) : (
           <div className="overflow-y-auto h-full p-6">
@@ -234,16 +290,34 @@ export default function DashboardPage() {
                   key={project.id}
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="group relative bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-4 cursor-pointer transition-all duration-200 hover:border-[#3a3a3a] hover:shadow-[0_0_20px_rgba(255,255,255,0.03)]"
+                  className="group relative bg-[#1a1a1a]/80 backdrop-blur-sm border border-[#2a2a2a] rounded-xl overflow-hidden cursor-pointer transition-all duration-200 hover:border-[#3a3a3a] hover:shadow-[0_0_20px_rgba(255,255,255,0.03)]"
                   onDoubleClick={() => handleOpenProject(project.id)}
                 >
-                  {/* Card content */}
-                  <div className="flex flex-col gap-2">
+                  {/* Thumbnail preview */}
+                  <div className="h-32 bg-[#0f0f0f]/60 border-b border-[#2a2a2a]">
+                    {project.thumbnail_url ? (
+                      <img
+                        src={project.thumbnail_url}
+                        alt={project.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          // Fall back to synthetic thumbnail if image fails to load
+                          (e.target as HTMLImageElement).style.display = 'none';
+                          (e.target as HTMLImageElement).parentElement!.querySelector('.fallback-thumbnail')?.classList.remove('hidden');
+                        }}
+                      />
+                    ) : null}
+                    <div className={project.thumbnail_url ? 'hidden fallback-thumbnail' : 'w-full h-full'}>
+                      <ProjectThumbnail projectId={project.id} />
+                    </div>
+                  </div>
+
+                  {/* Card info */}
+                  <div className="p-4 flex flex-col gap-1.5">
                     <div className="flex items-start justify-between">
                       <h3 className="text-white text-sm font-medium truncate pr-2">
                         {project.name}
                       </h3>
-                      {/* Delete button - visible on hover */}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -255,12 +329,7 @@ export default function DashboardPage() {
                         <IconTrash className="w-3.5 h-3.5 text-[#606060] hover:text-[#ef4444]" />
                       </button>
                     </div>
-                    {project.description && (
-                      <p className="text-[#808080] text-xs line-clamp-2">
-                        {project.description}
-                      </p>
-                    )}
-                    <p className="text-[#606060] text-[11px] mt-1">
+                    <p className="text-[#606060] text-[11px]">
                       {formatDate(project.updated_at)}
                     </p>
                   </div>

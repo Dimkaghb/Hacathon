@@ -15,6 +15,7 @@ interface SidebarContextProps {
   open: boolean;
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
   animate: boolean;
+  overlay: boolean;
 }
 
 const SidebarContext = createContext<SidebarContextProps | undefined>(
@@ -34,11 +35,13 @@ export const SidebarProvider = ({
   open: openProp,
   setOpen: setOpenProp,
   animate = true,
+  overlay = false,
 }: {
   children: React.ReactNode;
   open?: boolean;
   setOpen?: React.Dispatch<React.SetStateAction<boolean>>;
   animate?: boolean;
+  overlay?: boolean;
 }) => {
   const [openState, setOpenState] = useState(false);
 
@@ -46,7 +49,7 @@ export const SidebarProvider = ({
   const setOpen = setOpenProp !== undefined ? setOpenProp : setOpenState;
 
   return (
-    <SidebarContext.Provider value={{ open, setOpen, animate: animate }}>
+    <SidebarContext.Provider value={{ open, setOpen, animate, overlay }}>
       {children}
     </SidebarContext.Provider>
   );
@@ -57,14 +60,16 @@ export const Sidebar = ({
   open,
   setOpen,
   animate,
+  overlay,
 }: {
   children: React.ReactNode;
   open?: boolean;
   setOpen?: React.Dispatch<React.SetStateAction<boolean>>;
   animate?: boolean;
+  overlay?: boolean;
 }) => {
   return (
-    <SidebarProvider open={open} setOpen={setOpen} animate={animate}>
+    <SidebarProvider open={open} setOpen={setOpen} animate={animate} overlay={overlay}>
       {children}
     </SidebarProvider>
   );
@@ -84,7 +89,36 @@ export const DesktopSidebar = ({
   children,
   ...props
 }: React.ComponentProps<typeof motion.div>) => {
-  const { open, setOpen, animate } = useSidebar();
+  const { open, setOpen, animate, overlay } = useSidebar();
+
+  if (overlay) {
+    return (
+      <>
+        {/* Static spacer so main content never shifts */}
+        <div className="hidden md:block shrink-0" style={{ width: "60px" }} />
+        {/* Sidebar overlays on top */}
+        <motion.div
+          className={cn(
+            "h-full px-3 py-4 hidden md:flex md:flex-col bg-[#1a1a1a] border-r border-[#2a2a2a] shrink-0 fixed left-0 top-0 z-40",
+            className
+          )}
+          animate={{
+            width: animate ? (open ? "240px" : "60px") : "240px",
+          }}
+          transition={{
+            duration: 0.2,
+            ease: "easeInOut",
+          }}
+          onMouseEnter={() => setOpen(true)}
+          onMouseLeave={() => setOpen(false)}
+          {...props}
+        >
+          {children}
+        </motion.div>
+      </>
+    );
+  }
+
   return (
     <motion.div
       className={cn(

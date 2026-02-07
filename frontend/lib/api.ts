@@ -176,6 +176,7 @@ export const projectsApi = {
         id: string;
         name: string;
         description: string | null;
+        thumbnail_url: string | null;
         created_at: string;
         updated_at: string;
       }>
@@ -208,11 +209,12 @@ export const projectsApi = {
     });
   },
 
-  update: async (projectId: string, data: { name?: string; description?: string; canvas_state?: any }) => {
+  update: async (projectId: string, data: { name?: string; description?: string; canvas_state?: any; thumbnail_url?: string }) => {
     return apiFetch<{
       id: string;
       name: string;
       description: string | null;
+      thumbnail_url: string | null;
       created_at: string;
       updated_at: string;
     }>(`/api/projects/${projectId}`, {

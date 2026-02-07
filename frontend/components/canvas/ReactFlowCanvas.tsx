@@ -16,18 +16,100 @@ import {
   Connection,
   NodeChange,
   type ReactFlowInstance,
+  useReactFlow,
+  getNodesBounds,
+  getViewportForBounds,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import './styles/canvas.css';
 
+import { toBlob } from 'html-to-image';
 import { Node, Connection as BackendConnection } from '@/lib/types/node';
-import { nodesApi, connectionsApi, aiApi } from '@/lib/api';
+import { nodesApi, connectionsApi, aiApi, filesApi, projectsApi } from '@/lib/api';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { useSubscription } from '@/lib/contexts/SubscriptionContext';
 import { nodeTypes } from './nodes';
 import { edgeTypes } from './edges';
 import { FloatingDock, DockItem } from '@/components/ui/floating-dock';
 import { IconPhoto, IconMessageCircle, IconVideo, IconPlayerTrackNext, IconComponents } from '@tabler/icons-react';
+
+const SCREENSHOT_WIDTH = 640;
+const SCREENSHOT_HEIGHT = 360;
+
+function ScreenshotCapture({ projectId }: { projectId: string }) {
+  const { getNodes } = useReactFlow();
+  const renderCountRef = useRef(0);
+  const capturingRef = useRef(false);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const prevCountRef = useRef<string>('');
+
+  const captureScreenshot = useCallback(async () => {
+    const nodes = getNodes();
+    if (nodes.length === 0 || capturingRef.current) return;
+
+    const viewportEl = document.querySelector('.react-flow__viewport') as HTMLElement;
+    if (!viewportEl) return;
+
+    capturingRef.current = true;
+    try {
+      const bounds = getNodesBounds(nodes);
+      const viewport = getViewportForBounds(bounds, SCREENSHOT_WIDTH, SCREENSHOT_HEIGHT, 0.5, 2, 0.1);
+
+      const blob = await toBlob(viewportEl, {
+        backgroundColor: '#1a1a1a',
+        width: SCREENSHOT_WIDTH,
+        height: SCREENSHOT_HEIGHT,
+        style: {
+          width: String(SCREENSHOT_WIDTH),
+          height: String(SCREENSHOT_HEIGHT),
+          transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
+        },
+      });
+
+      if (!blob) return;
+
+      const file = new File([blob], `thumbnail-${projectId}.png`, { type: 'image/png' });
+      const uploaded = await filesApi.uploadDirect(file);
+      await projectsApi.update(projectId, { thumbnail_url: uploaded.url });
+    } catch (err) {
+      console.warn('Screenshot capture failed:', err);
+    } finally {
+      capturingRef.current = false;
+    }
+  }, [projectId, getNodes]);
+
+  // Debounced capture on node/edge count change
+  useEffect(() => {
+    const nodes = getNodes();
+    const countKey = String(nodes.length);
+    if (countKey === prevCountRef.current) return;
+    prevCountRef.current = countKey;
+
+    renderCountRef.current += 1;
+    // Skip first 2 renders (initial load)
+    if (renderCountRef.current <= 2) return;
+
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      captureScreenshot();
+    }, 5000);
+
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
+  });
+
+  // Capture on unmount (fire-and-forget)
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      captureScreenshot();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return null;
+}
 
 interface ReactFlowCanvasProps {
   projectId: string;
@@ -896,6 +978,7 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
       >
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="var(--color-border-default)" />
         <Controls className="react-flow__controls" />
+        <ScreenshotCapture projectId={projectId} />
       </ReactFlow>
 
       {/* Floating Dock at bottom center */}
