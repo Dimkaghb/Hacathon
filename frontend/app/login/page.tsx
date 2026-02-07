@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/contexts/AuthContext';
-import Link from 'next/link';
 import Dither from '@/components/Dither';
+import { authApi } from '@/lib/api';
+
+const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -12,13 +14,50 @@ export default function LoginPage() {
   const [isRegister, setIsRegister] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [trialStarted, setTrialStarted] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
-  const { login, register, isAuthenticated } = useAuth();
+  const { login, register, isAuthenticated, checkAuth } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const getRedirectUri = () => {
+    return window.location.origin + '/login';
+  };
+
+  // Handle Google OAuth callback — Google redirects here with ?code=xxx
+  const handleGoogleCallback = useCallback(async (code: string) => {
+    setLoading(true);
+    setError('');
+    try {
+      await authApi.googleAuth(code, getRedirectUri());
+      await checkAuth();
+      router.push('/dashboard');
+    } catch (err: any) {
+      console.error('Google auth error:', err);
+      setError('Google authentication failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, [checkAuth, router]);
 
   useEffect(() => {
-    // Redirect if already authenticated
+    const code = searchParams.get('code');
+    const authError = searchParams.get('error');
+
+    if (authError) {
+      setError(authError);
+      // Clean URL
+      window.history.replaceState({}, '', '/login');
+      return;
+    }
+
+    if (code) {
+      // Clean URL immediately so we don't re-process
+      window.history.replaceState({}, '', '/login');
+      handleGoogleCallback(code);
+    }
+  }, [searchParams, handleGoogleCallback]);
+
+  useEffect(() => {
     if (isAuthenticated) {
       router.push('/dashboard');
     }
@@ -35,12 +74,7 @@ export default function LoginPage() {
         : await login(email, password);
 
       if (success) {
-        if (isRegister) {
-          setTrialStarted(true);
-          setTimeout(() => router.push('/dashboard'), 2000);
-        } else {
-          router.push('/dashboard');
-        }
+        router.push('/dashboard');
       } else {
         setError(isRegister ? 'Registration failed. Email may already be in use.' : 'Invalid email or password.');
       }
@@ -51,8 +85,21 @@ export default function LoginPage() {
     }
   };
 
+  const handleGoogleSignIn = () => {
+    // Redirect directly to Google — Google redirects back to /login with ?code=xxx
+    const params = new URLSearchParams({
+      client_id: GOOGLE_CLIENT_ID,
+      redirect_uri: getRedirectUri(),
+      response_type: 'code',
+      scope: 'openid email profile',
+      access_type: 'offline',
+      prompt: 'consent',
+    });
+    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+  };
+
   if (isAuthenticated) {
-    return null; // Will redirect
+    return null;
   }
 
   return (
@@ -86,7 +133,9 @@ export default function LoginPage() {
           {/* Google OAuth Button */}
           <button
             type="button"
-            className="w-full mt-8 bg-white/5 border border-white/10 flex items-center justify-center h-12 rounded-full hover:bg-white/10 transition-colors"
+            onClick={handleGoogleSignIn}
+            disabled={loading}
+            className="w-full mt-8 bg-white/5 border border-white/10 flex items-center justify-center h-12 rounded-full hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <img
               src="https://raw.githubusercontent.com/prebuiltui/prebuiltui/main/assets/login/googleLogo.svg"
@@ -177,13 +226,6 @@ export default function LoginPage() {
           {error && (
             <div className="mt-6 w-full p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
               {error}
-            </div>
-          )}
-
-          {/* Trial started message */}
-          {trialStarted && (
-            <div className="mt-6 w-full p-3 bg-green-500/10 border border-green-500/20 rounded-lg text-green-400 text-sm">
-              Your 3-day free trial has started! Redirecting...
             </div>
           )}
 

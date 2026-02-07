@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
+    # Google OAuth
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+    FRONTEND_URL: str = "http://localhost:3000"
+
     # App
     DEBUG: bool = True
     CORS_ORIGINS: List[str] = ["*"]  # Allow all origins for development

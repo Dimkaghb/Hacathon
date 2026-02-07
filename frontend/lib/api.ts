@@ -161,6 +161,18 @@ export const authApi = {
     tokenStorage.clearTokens();
   },
 
+  googleAuth: async (code: string, redirectUri: string) => {
+    const data = await apiFetch<{ access_token: string; refresh_token: string }>(
+      '/api/auth/google',
+      {
+        method: 'POST',
+        body: JSON.stringify({ code, redirect_uri: redirectUri }),
+      }
+    );
+    tokenStorage.setTokens(data.access_token, data.refresh_token);
+    return data;
+  },
+
   getMe: async () => {
     return apiFetch<{ id: string; email: string; created_at: string }>(
       '/api/auth/me'
