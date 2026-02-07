@@ -10,7 +10,10 @@ from alembic import context
 # Import your models and config
 from app.config import settings
 from app.core.database import Base
-from app.models import User, Project, Character, Node, Connection, Job
+from app.models import (
+    User, Project, Character, Node, Connection, Job,
+    Subscription, CreditTransaction, PolarWebhookEvent,
+)
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

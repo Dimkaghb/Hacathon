@@ -19,6 +19,7 @@ from app.models.node import Node, NodeStatus
 from app.models.job import Job, JobStatus
 from app.models.character import Character
 from app.config import settings
+from app.services.subscription_service import refund_credits_sync
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +91,8 @@ def analyze_face(
     project_id: str,
     character_id: str,
     image_url: str,
+    user_id: Optional[str] = None,
+    credit_cost: int = 0,
 ) -> Dict[str, Any]:
     """
     Analyze face and extract embeddings.
@@ -126,6 +129,19 @@ def analyze_face(
         # Update status on failure
         update_job_status_sync(job_id, JobStatus.FAILED, error=str(e))
         update_node_status_sync(node_id, NodeStatus.FAILED, error_message=str(e))
+
+        # Refund credits on permanent failure
+        if self.request.retries >= self.max_retries and user_id and credit_cost > 0:
+            try:
+                refund_credits_sync(
+                    sync_engine=sync_engine,
+                    user_id=user_id,
+                    amount=credit_cost,
+                    job_id=job_id,
+                    operation_type="face_analysis",
+                )
+            except Exception as refund_err:
+                logger.error(f"Failed to refund credits: {refund_err}")
 
         raise
 

@@ -3,6 +3,8 @@
 import React from 'react';
 import { Handle, Position } from '@xyflow/react';
 import { CustomNodeProps } from './types';
+import { CreditCostBadge } from '@/components/ui/CreditCostBadge';
+import { CREDIT_COSTS } from '@/lib/types/subscription';
 
 export default function ExtensionNodeRF({ data, selected }: CustomNodeProps) {
   // Access backend node data
@@ -143,7 +145,10 @@ export default function ExtensionNodeRF({ data, selected }: CustomNodeProps) {
           disabled={!canExtend || status === 'processing'}
           className={`rf-button ${canExtend && status !== 'processing' ? 'rf-button-primary' : ''}`}
         >
-          {status === 'processing' ? 'Extending...' : status === 'failed' ? 'Retry' : 'Extend'}
+          <span className="flex items-center justify-center gap-1.5">
+            {status === 'processing' ? 'Extending...' : status === 'failed' ? 'Retry' : 'Extend'}
+            {status !== 'processing' && <CreditCostBadge credits={CREDIT_COSTS.video_extension_standard} />}
+          </span>
         </button>
 
         {/* Video Display */}

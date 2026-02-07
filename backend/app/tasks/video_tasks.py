@@ -19,6 +19,7 @@ from app.services.face_service import face_service
 from app.models.node import Node, NodeStatus
 from app.models.job import Job, JobStatus
 from app.config import settings
+from app.services.subscription_service import refund_credits_sync
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +94,7 @@ def _execute_video_operation(
     start_operation: OperationStarter,
     operation_label: str,
     build_result_data: Callable[[Dict], Dict[str, Any]],
+    credit_refund_info: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Execute a video operation lifecycle: start, poll, download, and update status.
@@ -192,6 +194,19 @@ def _execute_video_operation(
             update_job_status_sync(job_id, JobStatus.FAILED, error=str(e))
             update_node_status_sync(node_id, NodeStatus.FAILED, error_message=str(e))
 
+            # Refund credits on permanent failure
+            if credit_refund_info:
+                try:
+                    refund_credits_sync(
+                        sync_engine=sync_engine,
+                        user_id=credit_refund_info["user_id"],
+                        amount=credit_refund_info["amount"],
+                        job_id=job_id,
+                        operation_type=credit_refund_info["operation_type"],
+                    )
+                except Exception as refund_err:
+                    logger.error(f"Failed to refund credits: {refund_err}")
+
         raise
 
     finally:
@@ -227,6 +242,8 @@ def generate_video(
     seed: Optional[int] = None,
     num_videos: int = 1,
     use_fast_model: bool = False,
+    user_id: Optional[str] = None,
+    credit_cost: int = 0,
 ) -> Dict[str, Any]:
     """
     Generate video using Veo API.
@@ -289,6 +306,11 @@ def generate_video(
             "veo_video_name": veo_video_name,
         }
 
+    credit_refund_info = None
+    if user_id and credit_cost > 0:
+        op_type = "video_generation_fast" if use_fast_model else "video_generation_standard"
+        credit_refund_info = {"user_id": user_id, "amount": credit_cost, "operation_type": op_type}
+
     return _execute_video_operation(
         celery_task=self,
         job_id=job_id,
@@ -297,6 +319,7 @@ def generate_video(
         start_operation=start_operation,
         operation_label="Generating",
         build_result_data=build_result,
+        credit_refund_info=credit_refund_info,
     )
 
 
@@ -321,6 +344,8 @@ def extend_video(
     extension_count: int = 1,
     veo_video_uri: Optional[str] = None,
     veo_video_name: Optional[str] = None,
+    user_id: Optional[str] = None,
+    credit_cost: int = 0,
 ) -> Dict[str, Any]:
     """
     Extend video using Veo API.
@@ -367,6 +392,10 @@ def extend_video(
             "veo_video_name": new_veo_video_name,
         }
 
+    credit_refund_info = None
+    if user_id and credit_cost > 0:
+        credit_refund_info = {"user_id": user_id, "amount": credit_cost, "operation_type": "video_extension_standard"}
+
     return _execute_video_operation(
         celery_task=self,
         job_id=job_id,
@@ -375,4 +404,5 @@ def extend_video(
         start_operation=start_operation,
         operation_label=f"Extending (#{extension_count})",
         build_result_data=build_result,
+        credit_refund_info=credit_refund_info,
     )

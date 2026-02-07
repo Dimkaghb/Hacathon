@@ -3,10 +3,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
 
+from fastapi.responses import JSONResponse
+
 from app.config import settings
 from app.core.database import engine, Base
 from app.core.redis import close_redis
-from app.api import auth, projects, nodes, connections, ai, files
+from app.core.exceptions import InsufficientCreditsError
+from app.api import auth, projects, nodes, connections, ai, files, subscriptions, webhooks
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -52,6 +55,20 @@ app.include_router(nodes.router, prefix="/api/projects", tags=["Nodes"])
 app.include_router(connections.router, prefix="/api/projects", tags=["Connections"])
 app.include_router(ai.router, prefix="/api/ai", tags=["AI Operations"])
 app.include_router(files.router, prefix="/api/files", tags=["Files"])
+app.include_router(subscriptions.router, prefix="/api/subscriptions", tags=["Subscriptions"])
+app.include_router(webhooks.router, prefix="/api/webhooks", tags=["Webhooks"])
+
+
+@app.exception_handler(InsufficientCreditsError)
+async def insufficient_credits_handler(request, exc: InsufficientCreditsError):
+    return JSONResponse(
+        status_code=402,
+        content={
+            "detail": "Insufficient credits",
+            "required": exc.required,
+            "available": exc.available,
+        },
+    )
 
 
 @app.get("/health")

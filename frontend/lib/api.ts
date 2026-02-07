@@ -559,3 +559,60 @@ export const aiApi = {
     });
   },
 };
+
+// Subscription API
+export const subscriptionApi = {
+  getStatus: async () => {
+    return apiFetch<{
+      has_subscription: boolean;
+      status: string | null;
+      plan: string | null;
+      credits_balance: number;
+      credits_total: number;
+      is_trial: boolean;
+      trial_ends_at: string | null;
+      current_period_end: string | null;
+      canceled_at: string | null;
+    }>('/api/subscriptions/status');
+  },
+
+  createCheckout: async () => {
+    return apiFetch<{
+      checkout_url: string;
+      checkout_id: string;
+    }>('/api/subscriptions/checkout', {
+      method: 'POST',
+    });
+  },
+
+  startTrial: async () => {
+    return apiFetch<{
+      has_subscription: boolean;
+      status: string | null;
+      plan: string | null;
+      credits_balance: number;
+      credits_total: number;
+      is_trial: boolean;
+      trial_ends_at: string | null;
+      current_period_end: string | null;
+    }>('/api/subscriptions/start-trial', {
+      method: 'POST',
+    });
+  },
+
+  getTransactions: async (page: number = 1, limit: number = 20) => {
+    return apiFetch<Array<{
+      id: string;
+      type: string;
+      amount: number;
+      balance_after: number;
+      operation_type: string | null;
+      description: string | null;
+      created_at: string;
+    }>>(`/api/subscriptions/transactions?page=${page}&limit=${limit}`);
+  },
+
+  getCreditsInfo: async () => {
+    return apiFetch<{ credit_costs: Record<string, number> }>('/api/subscriptions/credits-info');
+  },
+};

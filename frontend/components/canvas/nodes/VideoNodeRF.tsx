@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import { CustomNodeProps } from './types';
+import { CreditCostBadge } from '@/components/ui/CreditCostBadge';
+import { CREDIT_COSTS } from '@/lib/types/subscription';
 
 export default function VideoNodeRF({ data, selected }: CustomNodeProps) {
   // Access backend node data
@@ -155,7 +157,10 @@ export default function VideoNodeRF({ data, selected }: CustomNodeProps) {
           disabled={!canGenerate || status === 'processing'}
           className={`rf-button ${canGenerate && status !== 'processing' ? 'rf-button-primary' : ''}`}
         >
-          {status === 'processing' ? 'Generating...' : status === 'failed' ? 'Retry' : 'Generate'}
+          <span className="flex items-center justify-center gap-1.5">
+            {status === 'processing' ? 'Generating...' : status === 'failed' ? 'Retry' : 'Generate'}
+            {status !== 'processing' && <CreditCostBadge credits={CREDIT_COSTS.video_generation_standard} />}
+          </span>
         </button>
 
         {/* Video Display */}

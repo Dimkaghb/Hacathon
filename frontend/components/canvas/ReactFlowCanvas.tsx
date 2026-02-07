@@ -23,6 +23,7 @@ import './styles/canvas.css';
 import { Node, Connection as BackendConnection } from '@/lib/types/node';
 import { nodesApi, connectionsApi, aiApi } from '@/lib/api';
 import { useAuth } from '@/lib/contexts/AuthContext';
+import { useSubscription } from '@/lib/contexts/SubscriptionContext';
 import { nodeTypes } from './nodes';
 import { edgeTypes } from './edges';
 import { FloatingDock, DockItem } from '@/components/ui/floating-dock';
@@ -35,6 +36,7 @@ interface ReactFlowCanvasProps {
 
 export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanvasProps) {
   const { isAuthenticated } = useAuth();
+  const { refreshSubscription } = useSubscription();
 
   // React Flow state (UI)
   const [nodes, setNodes, onNodesChange] = useNodesState<RFNode>([]);
@@ -684,11 +686,30 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
 
       console.log('Video generation job started:', job);
 
+      // Refresh credit balance after successful dispatch
+      refreshSubscription();
+
       // Start polling for job status
       startJobPolling(job.job_id, nodeId);
     } catch (error: any) {
       const errorMessage = error?.message || error?.toString() || 'Unknown error';
       console.error('Failed to generate video:', errorMessage, error);
+
+      // Handle insufficient credits (402)
+      if (error?.status === 402) {
+        refreshSubscription();
+        updateNodeData(
+          nodeId,
+          {
+            progress_message: 'Insufficient credits. Please upgrade your plan.',
+            stage: 'error',
+          },
+          'failed',
+          'Insufficient credits'
+        );
+        return;
+      }
+
       updateNodeData(
         nodeId,
         {
@@ -699,7 +720,7 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
         errorMessage
       );
     }
-  }, [updateNodeData, startJobPolling]);
+  }, [updateNodeData, startJobPolling, refreshSubscription]);
 
   // Handle video extension - uses refs to always access latest state (fixes stale closure)
   const handleExtendVideo = useCallback(async (nodeId: string) => {
@@ -748,11 +769,30 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
 
       console.log('Video extension job started:', job);
 
+      // Refresh credit balance after successful dispatch
+      refreshSubscription();
+
       // Start polling for job status
       startJobPolling(job.job_id, nodeId);
     } catch (error: any) {
       const errorMessage = error?.message || error?.toString() || 'Unknown error';
       console.error('Failed to extend video:', errorMessage, error);
+
+      // Handle insufficient credits (402)
+      if (error?.status === 402) {
+        refreshSubscription();
+        updateNodeData(
+          nodeId,
+          {
+            progress_message: 'Insufficient credits. Please upgrade your plan.',
+            stage: 'error',
+          },
+          'failed',
+          'Insufficient credits'
+        );
+        return;
+      }
+
       updateNodeData(
         nodeId,
         {
@@ -763,7 +803,7 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
         errorMessage
       );
     }
-  }, [updateNodeData, startJobPolling]);
+  }, [updateNodeData, startJobPolling, refreshSubscription]);
 
   if (loading) {
     return (

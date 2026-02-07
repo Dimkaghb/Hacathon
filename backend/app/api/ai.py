@@ -30,8 +30,11 @@ from app.schemas.ai import (
     CharacterCreate,
     CharacterResponse,
 )
-from app.api.deps import get_current_user, verify_project_access
+from app.api.deps import get_current_user, verify_project_access, require_active_subscription
+from app.models.subscription import Subscription
 from app.services.prompt_service import prompt_service
+from app.services.subscription_service import subscription_service, CREDIT_COSTS
+from app.core.exceptions import InsufficientCreditsError
 
 # Import Celery tasks
 from app.tasks.video_tasks import generate_video as generate_video_task
@@ -93,14 +96,21 @@ async def create_and_dispatch_video_job(
 async def analyze_face(
     request: FaceAnalysisRequest,
     current_user: User = Depends(get_current_user),
+    subscription: Subscription = Depends(require_active_subscription),
     db: AsyncSession = Depends(get_db),
 ):
     """
     Analyze a face image and create a character.
 
     This extracts visual embeddings for character consistency
-    in video generation.
+    in video generation. Costs 5 credits.
     """
+    # Deduct credits
+    credit_cost = CREDIT_COSTS["face_analysis"]
+    await subscription_service.deduct_credits(
+        db, current_user.id, credit_cost, "face_analysis"
+    )
+
     # Verify project access
     result = await db.execute(
         select(Project).where(
@@ -155,6 +165,8 @@ async def analyze_face(
         project_id=str(request.project_id),
         character_id=str(character.id),
         image_url=request.image_url,
+        user_id=str(current_user.id),
+        credit_cost=credit_cost,
     )
 
     return JobStatusResponse(
@@ -170,6 +182,7 @@ async def analyze_face(
 async def enhance_prompt(
     request: PromptEnhanceRequest,
     current_user: User = Depends(get_current_user),
+    subscription: Subscription = Depends(require_active_subscription),
 ):
     """
     Enhance a video generation prompt using AI.
@@ -188,6 +201,7 @@ async def enhance_prompt(
 async def generate_video(
     request: VideoGenerateRequest,
     current_user: User = Depends(get_current_user),
+    subscription: Subscription = Depends(require_active_subscription),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -198,7 +212,16 @@ async def generate_video(
     - Image-to-video generation (when image_url provided)
     - Character consistency (when character_id provided)
     - Multiple video candidates (num_videos > 1)
+
+    Costs 25 credits (standard) or 10 credits (fast).
     """
+    # Deduct credits
+    operation_type = "video_generation_fast" if request.use_fast_model else "video_generation_standard"
+    credit_cost = CREDIT_COSTS[operation_type]
+    await subscription_service.deduct_credits(
+        db, current_user.id, credit_cost, operation_type
+    )
+
     # Verify node exists and user has access
     result = await db.execute(
         select(Node)
@@ -232,6 +255,8 @@ async def generate_video(
             "seed": request.seed,
             "num_videos": request.num_videos,
             "use_fast_model": request.use_fast_model,
+            "user_id": str(current_user.id),
+            "credit_cost": credit_cost,
         },
     )
 
@@ -248,6 +273,7 @@ async def generate_video(
 async def extend_video(
     request: VideoExtendRequest,
     current_user: User = Depends(get_current_user),
+    subscription: Subscription = Depends(require_active_subscription),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -255,7 +281,15 @@ async def extend_video(
 
     Uses Veo's video extension capability for seamless continuation.
     Note: Extensions are limited to 720p and max 20 extensions.
+    Costs 25 credits (standard) or 10 credits (fast).
     """
+    # Deduct credits (extensions currently use standard model)
+    operation_type = "video_extension_standard"
+    credit_cost = CREDIT_COSTS[operation_type]
+    await subscription_service.deduct_credits(
+        db, current_user.id, credit_cost, operation_type
+    )
+
     # Verify node exists and user has access
     result = await db.execute(
         select(Node)
@@ -292,6 +326,8 @@ async def extend_video(
             "extension_count": request.extension_count,
             "veo_video_uri": request.veo_video_uri,
             "veo_video_name": request.veo_video_name,
+            "user_id": str(current_user.id),
+            "credit_cost": credit_cost,
         },
     )
 

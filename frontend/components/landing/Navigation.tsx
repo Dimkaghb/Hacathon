@@ -29,6 +29,7 @@ export default function Navigation() {
       >
         <Link href="#features" className="hover:opacity-70 transition-opacity">Features</Link>
         <Link href="#process" className="hover:opacity-70 transition-opacity">How It Works</Link>
+        <Link href="/pricing" className="hover:opacity-70 transition-opacity">Pricing</Link>
         <Link href="#faq" className="hover:opacity-70 transition-opacity">FAQ</Link>
         <motion.div
           whileHover={{ scale: 1.05 }}

@@ -11,6 +11,7 @@ export default function LoginPage() {
   const [isRegister, setIsRegister] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [trialStarted, setTrialStarted] = useState(false);
   const { login, register, isAuthenticated } = useAuth();
   const router = useRouter();
 
@@ -32,7 +33,12 @@ export default function LoginPage() {
         : await login(email, password);
 
       if (success) {
-        router.push('/dashboard');
+        if (isRegister) {
+          setTrialStarted(true);
+          setTimeout(() => router.push('/dashboard'), 2000);
+        } else {
+          router.push('/dashboard');
+        }
       } else {
         setError(isRegister ? 'Registration failed. Email may already be in use.' : 'Invalid email or password.');
       }
@@ -88,6 +94,12 @@ export default function LoginPage() {
               placeholder="••••••••"
             />
           </div>
+
+          {trialStarted && (
+            <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg text-green-400 text-sm">
+              Your 3-day free trial has started! Redirecting...
+            </div>
+          )}
 
           {error && (
             <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">

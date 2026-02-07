@@ -87,9 +87,34 @@ Backend (FastAPI) ── Services Layer ── Celery Workers
 - **`lib/api.ts`** — API client for all backend communication (HTTP + WebSocket).
 - **`lib/contexts/AuthContext.tsx`** — Authentication state management, token storage in localStorage.
 
+### Subscription & Credits (`backend/app/`)
+
+- **`models/subscription.py`** — Subscription model (plan, status, credits_balance, trial dates, Polar IDs)
+- **`models/credit_transaction.py`** — Append-only credit audit log
+- **`models/polar_event.py`** — Webhook idempotency table
+- **`services/subscription_service.py`** — Core credit logic: deduct (SELECT FOR UPDATE), refund, trial/activation/renewal
+- **`services/polar_service.py`** — Polar.sh SDK wrapper (checkout, webhook verification)
+- **`api/subscriptions.py`** — `/api/subscriptions` endpoints (status, checkout, trial, transactions)
+- **`api/webhooks.py`** — `/api/webhooks/polar` (no auth, handles subscription lifecycle + order events)
+- **`api/deps.py`** — `require_active_subscription` dependency (402 if no valid subscription)
+- **`core/exceptions.py`** — `InsufficientCreditsError`
+
+### Frontend subscription (`frontend/`)
+
+- **`lib/contexts/SubscriptionContext.tsx`** — Subscription state + `useSubscription()` hook
+- **`components/SubscriptionGate.tsx`** — Paywall overlay for gated content
+- **`components/ui/CreditDisplay.tsx`** — Credit balance widget (sidebar)
+- **`components/ui/CreditCostBadge.tsx`** — Inline credit cost badge on buttons
+- **`app/pricing/page.tsx`** — Public pricing page
+- **`app/subscription/success/page.tsx`** — Post-checkout redirect
+
 ### Key data flows
 
-**Video generation:** Frontend POST `/api/ai/generate-video` → Job created (PENDING) → Celery task dispatched → Worker calls Veo 3.1 → Polls for completion (10s interval, 360s max) → Downloads video → Uploads to GCS → Updates Job/Node status → Frontend polls `/api/ai/jobs/{id}`.
+**Video generation:** Frontend POST `/api/ai/generate-video` → Credits deducted → Job created (PENDING) → Celery task dispatched → Worker calls Veo 3.1 → Polls for completion (10s interval, 360s max) → Downloads video → Uploads to GCS → Updates Job/Node status → Frontend polls `/api/ai/jobs/{id}`. On permanent failure, credits are refunded.
+
+**Subscription lifecycle:** Register → Auto-trial (50 credits, 3 days) → Subscribe via Polar checkout → Webhook activates (300 credits) → Monthly renewal resets credits
+
+**Credit costs:** Video gen standard=25, fast=10, extension standard=25, extension fast=10, face analysis=5, prompt enhancement=free
 
 **Job status lifecycle:** PENDING → PROCESSING → COMPLETED/FAILED
 
@@ -99,6 +124,7 @@ Backend (FastAPI) ── Services Layer ── Celery Workers
 
 ### Backend (`backend/.env`)
 `DATABASE_URL`, `REDIS_URL`, `GEMINI_API_KEY`, `GCS_BUCKET`, `JWT_SECRET`, `GOOGLE_CLOUD_PROJECT`, `VEO_MODEL`
+`POLAR_ACCESS_TOKEN`, `POLAR_WEBHOOK_SECRET`, `POLAR_PRO_PRODUCT_ID`, `POLAR_SANDBOX=true`, `POLAR_SUCCESS_URL`
 
 ### Frontend (`frontend/.env.local`)
 `NEXT_PUBLIC_API_URL=http://localhost:8000`
