@@ -57,6 +57,18 @@ class Settings(BaseSettings):
             return [origin.strip() for origin in v.split(',') if origin.strip()]
         return ["*"]
 
+    # Polar.sh
+    POLAR_ACCESS_TOKEN: str = ""
+    POLAR_WEBHOOK_SECRET: str = ""
+    POLAR_PRO_PRODUCT_ID: str = ""
+    POLAR_SANDBOX: bool = True
+    POLAR_SUCCESS_URL: str = "http://localhost:3000/subscription/success"
+
+    # Credits
+    CREDITS_PRO_MONTHLY: int = 300
+    CREDITS_TRIAL: int = 50
+    TRIAL_DAYS: int = 3
+
     # Veo Configuration
     VEO_MODEL: str = "veo-3.1-generate-preview"
     VEO_FAST_MODEL: str = "veo-3.1-fast-generate-preview"

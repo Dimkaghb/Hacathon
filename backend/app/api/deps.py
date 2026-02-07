@@ -1,3 +1,4 @@
+from datetime import datetime
 from fastapi import Depends, HTTPException, status, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +10,7 @@ from app.core.database import get_db
 from app.core.security import decode_token
 from app.models.user import User
 from app.models.project import Project
+from app.models.subscription import Subscription, SubscriptionStatus
 
 security = HTTPBearer()
 
@@ -118,3 +120,49 @@ async def verify_project_access(
         status_code=status.HTTP_404_NOT_FOUND,
         detail="Project not found",
     )
+
+
+async def require_active_subscription(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Subscription:
+    """Require an active subscription (active, valid trial, or canceled but still in period)."""
+    result = await db.execute(
+        select(Subscription).where(
+            Subscription.user_id == current_user.id,
+            Subscription.status.in_([
+                SubscriptionStatus.ACTIVE,
+                SubscriptionStatus.TRIALING,
+                SubscriptionStatus.CANCELED,
+            ]),
+        )
+    )
+    subscription = result.scalar_one_or_none()
+
+    if not subscription:
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail="Active subscription required. Please subscribe to use AI features.",
+        )
+
+    # Check trial expiry
+    if subscription.status == SubscriptionStatus.TRIALING:
+        if subscription.trial_ends_at and datetime.utcnow() > subscription.trial_ends_at:
+            subscription.status = SubscriptionStatus.EXPIRED
+            await db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail="Your trial has expired. Please subscribe to continue.",
+            )
+
+    # Check if canceled subscription period has ended
+    if subscription.status == SubscriptionStatus.CANCELED:
+        if subscription.current_period_end and datetime.utcnow() > subscription.current_period_end:
+            subscription.status = SubscriptionStatus.EXPIRED
+            await db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail="Your subscription has expired. Please resubscribe.",
+            )
+
+    return subscription

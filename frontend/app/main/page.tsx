@@ -7,6 +7,8 @@ import BackendConnection from "@/components/BackendConnection";
 import { Sidebar, SidebarBody, SidebarLink, SidebarSection, SidebarDivider } from "@/components/ui/sidebar";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { projectsApi } from "@/lib/api";
+import { CreditDisplay } from "@/components/ui/CreditDisplay";
+import { SubscriptionGate } from "@/components/SubscriptionGate";
 import { motion } from "framer-motion";
 import {
   IconFolder,
@@ -231,6 +233,8 @@ function MainPageContent() {
           {/* Bottom section */}
           <div className="flex flex-col gap-1">
             <SidebarDivider />
+            <CreditDisplay />
+            <SidebarDivider />
             <SidebarLink
               link={{
                 label: "Logout",
@@ -258,7 +262,9 @@ function MainPageContent() {
 
       {/* Main content area - Full canvas */}
       <div className="flex-1 relative overflow-hidden">
-        <ReactFlowCanvas projectId={projectId} shareToken={shareToken} />
+        <SubscriptionGate>
+          <ReactFlowCanvas projectId={projectId} shareToken={shareToken} />
+        </SubscriptionGate>
       </div>
 
       {/* Backend Connection Status */}

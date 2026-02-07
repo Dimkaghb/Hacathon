@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { authApi, tokenStorage } from '../api';
+import { authApi, subscriptionApi, tokenStorage } from '../api';
 
 interface User {
   id: string;
@@ -67,6 +67,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await authApi.register(email, password);
       const userData = await authApi.getMe();
       setUser(userData);
+      // Auto-start free trial for new users
+      try {
+        await subscriptionApi.startTrial();
+      } catch (e) {
+        console.warn('Trial auto-start failed (may already exist):', e);
+      }
       return true;
     } catch (error) {
       console.error('Registration failed:', error);

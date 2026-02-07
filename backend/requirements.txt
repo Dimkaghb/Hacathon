@@ -26,6 +26,9 @@ google-cloud-storage==2.19.0
 
 google-genai==1.60.0
 
+# Payments
+polar-sdk
+
 # HTTP client
 httpx==0.28.1
 
