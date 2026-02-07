@@ -212,8 +212,9 @@ export const SidebarLink = ({
     <a
       href={link.href || "#"}
       onClick={handleClick}
+      data-sidebar-link
       className={cn(
-        "flex items-center justify-start gap-3 group/sidebar py-2 px-2 rounded-md hover:bg-[#2a2a2a] transition-colors",
+        "flex items-center justify-start gap-2.5 group/sidebar py-1.5 px-2 rounded-md hover:bg-[#2a2a2a] transition-colors",
         className
       )}
       {...props}
@@ -224,7 +225,7 @@ export const SidebarLink = ({
           display: animate ? (open ? "inline-block" : "none") : "inline-block",
           opacity: animate ? (open ? 1 : 0) : 1,
         }}
-        className="text-[#a0a0a0] text-sm group-hover/sidebar:text-white transition-colors whitespace-pre inline-block !p-0 !m-0"
+        className="text-[#a0a0a0] text-xs group-hover/sidebar:text-white transition-colors whitespace-pre inline-block !p-0 !m-0"
       >
         {link.label}
       </motion.span>
@@ -233,7 +234,7 @@ export const SidebarLink = ({
 };
 
 export const SidebarDivider = () => {
-  return <div className="h-px bg-[#2a2a2a] my-2" />;
+  return <div className="h-px bg-[#2a2a2a] my-1.5" />;
 };
 
 export const SidebarSection = ({

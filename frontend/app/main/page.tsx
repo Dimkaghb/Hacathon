@@ -1,22 +1,23 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import ReactFlowCanvas from "@/components/canvas/ReactFlowCanvas";
 import BackendConnection from "@/components/BackendConnection";
-import { Sidebar, SidebarBody, SidebarLink, SidebarSection, SidebarDivider } from "@/components/ui/sidebar";
+import { Sidebar, SidebarBody, SidebarLink, SidebarSection, SidebarDivider, useSidebar } from "@/components/ui/sidebar";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { projectsApi } from "@/lib/api";
 import { CreditDisplay } from "@/components/ui/CreditDisplay";
 import { SubscriptionGate } from "@/components/SubscriptionGate";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
-  IconFolder,
   IconVideo,
   IconLogout,
-  IconPlus,
-  IconArrowLeft,
+  IconSettings,
 } from "@tabler/icons-react";
+import { CirclePlus } from "@/components/animate-ui/icons/circle-plus";
+import { ChevronLeft } from "@/components/animate-ui/icons/chevron-left";
+import { FoldersIcon } from "@/components/animate-ui/icons/folders";
 
 function MainPageContent() {
   const { isAuthenticated, loading: authLoading, user, logout } = useAuth();
@@ -30,6 +31,8 @@ function MainPageContent() {
   const [shareToken, setShareToken] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [recentProjects, setRecentProjects] = useState<Array<{ id: string; name: string }>>([]);
+  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const userDropdownRef = useRef<HTMLDivElement>(null);
 
   // Check for share token first (allows guest access)
   useEffect(() => {
@@ -56,6 +59,17 @@ function MainPageContent() {
       loadOrCreateProject();
     }
   }, [isAuthenticated, searchParams, isSharedAccess]);
+
+  // Close user dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (userDropdownRef.current && !userDropdownRef.current.contains(e.target as globalThis.Node)) {
+        setUserDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const loadSharedProject = async (token: string) => {
     try {
@@ -189,9 +203,9 @@ function MainPageContent() {
           {/* Top section */}
           <div className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto">
             {/* Logo */}
-            <div className="flex items-center gap-2 px-2 py-1 mb-6">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-white to-[#808080] flex items-center justify-center shrink-0">
-                <IconVideo className="w-4 h-4 text-black" />
+            <div className="flex items-center gap-2 px-2 py-1 mb-4">
+              <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-white to-[#808080] flex items-center justify-center shrink-0">
+                <IconVideo className="w-3.5 h-3.5 text-black" />
               </div>
               <motion.span
                 animate={{
@@ -209,7 +223,7 @@ function MainPageContent() {
               <SidebarLink
                 link={{
                   label: "Back to Dashboard",
-                  icon: <IconArrowLeft className="h-5 w-5 shrink-0 text-[#808080]" />,
+                  icon: <ChevronLeft size={16} className="shrink-0 text-[#808080]" />,
                   onClick: () => router.push('/dashboard'),
                 }}
               />
@@ -220,7 +234,7 @@ function MainPageContent() {
               <SidebarLink
                 link={{
                   label: "New Project",
-                  icon: <IconPlus className="h-5 w-5 shrink-0 text-[#808080]" />,
+                  icon: <CirclePlus size={16} className="shrink-0 text-[#808080]" />,
                   onClick: () => setShowProjectDialog(true),
                 }}
               />
@@ -229,13 +243,13 @@ function MainPageContent() {
             <SidebarDivider />
 
             {/* Recent Projects */}
-            <SidebarSection title="Recent">
+            <SidebarSection>
               {recentProjects.map((project) => (
                 <SidebarLink
                   key={project.id}
                   link={{
                     label: project.name,
-                    icon: <IconFolder className={`h-5 w-5 shrink-0 ${project.id === projectId ? 'text-white' : 'text-[#808080]'}`} />,
+                    icon: <FoldersIcon size={16} className={`shrink-0 ${project.id === projectId ? 'text-white' : 'text-[#808080]'}`} />,
                     onClick: () => handleProjectSwitch(project.id, project.name),
                   }}
                   className={project.id === projectId ? 'bg-[#2a2a2a]' : ''}
@@ -249,27 +263,64 @@ function MainPageContent() {
             <SidebarDivider />
             <CreditDisplay />
             <SidebarDivider />
-            <SidebarLink
-              link={{
-                label: "Logout",
-                icon: <IconLogout className="h-5 w-5 shrink-0 text-[#808080]" />,
-                onClick: logout,
-              }}
-            />
 
-            {/* User info */}
-            <SidebarDivider />
-            <SidebarLink
-              link={{
-                label: user?.email || "User",
-                href: "#",
-                icon: (
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#3a3a3a] to-[#1a1a1a] flex items-center justify-center shrink-0 text-white text-xs font-medium">
-                    {user?.email?.charAt(0).toUpperCase() || "U"}
-                  </div>
-                ),
-              }}
-            />
+            {/* User avatar with dropdown */}
+            <div ref={userDropdownRef} className="relative" onMouseLeave={() => setUserDropdownOpen(false)}>
+              <button
+                onClick={() => setUserDropdownOpen((prev) => !prev)}
+                className="flex items-center gap-2.5 w-full py-1.5 px-2 rounded-md hover:bg-[#2a2a2a] transition-colors"
+              >
+                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#3a3a3a] to-[#1a1a1a] flex items-center justify-center shrink-0 text-white text-[10px] font-medium">
+                  {user?.email?.charAt(0).toUpperCase() || "U"}
+                </div>
+                <motion.span
+                  animate={{
+                    display: sidebarOpen ? "inline-block" : "none",
+                    opacity: sidebarOpen ? 1 : 0,
+                  }}
+                  className="text-[#a0a0a0] text-xs whitespace-pre truncate"
+                >
+                  {user?.email || "User"}
+                </motion.span>
+              </button>
+
+              <AnimatePresence>
+                {userDropdownOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 4, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 4, scale: 0.95 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute bottom-full left-0 mb-1 w-48 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-xl overflow-hidden z-50"
+                  >
+                    <div className="px-3 py-2 border-b border-[#2a2a2a]">
+                      <p className="text-white text-xs font-medium truncate">
+                        {user?.email || "User"}
+                      </p>
+                    </div>
+                    <div className="py-1">
+                      <button
+                        onClick={() => setUserDropdownOpen(false)}
+                        className="w-full flex items-center gap-2 px-3 py-1.5 text-[#a0a0a0] hover:text-white hover:bg-[#2a2a2a] transition-colors text-xs"
+                      >
+                        <IconSettings className="w-3.5 h-3.5" />
+                        Settings
+                      </button>
+                      <button
+                        onClick={() => {
+                          setUserDropdownOpen(false);
+                          logout();
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-1.5 text-[#a0a0a0] hover:text-[#ef4444] hover:bg-[#2a2a2a] transition-colors text-xs"
+                      >
+                        <IconLogout className="w-3.5 h-3.5" />
+                        Logout
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </SidebarBody>
       </Sidebar>
