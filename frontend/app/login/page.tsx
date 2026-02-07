@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import Link from 'next/link';
+import Dither from '@/components/Dither';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -12,6 +13,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [trialStarted, setTrialStarted] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const { login, register, isAuthenticated } = useAuth();
   const router = useRouter();
 
@@ -54,93 +56,179 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-[#0a0a0a] text-white flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold mb-2">Axel</h1>
-          <p className="text-gray-400">
-            {isRegister ? 'Create your account' : 'Welcome back'}
-          </p>
-        </div>
+    <div className="flex h-screen w-full bg-[#0a0a0a]">
+      {/* Left side Dither - hidden on mobile */}
+      <div className="w-full hidden md:inline-block relative overflow-hidden">
+        <Dither
+          waveColor={[0.5, 0.5, 0.5]}
+          disableAnimation={false}
+          enableMouseInteraction={false}
+          mouseRadius={0.3}
+          colorNum={18.7}
+          waveAmplitude={0.22}
+          waveFrequency={2.5}
+          waveSpeed={0.04}
+        />
+      </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium mb-2">
-              Email
-            </label>
+      {/* Right side form - Dark mode */}
+      <div className="w-full flex flex-col items-center justify-center bg-[#0a0a0a] px-6">
+        <form onSubmit={handleSubmit} className="md:w-96 w-80 flex flex-col items-center justify-center">
+          <h2 className="text-4xl text-white font-medium">
+            {isRegister ? 'Sign up' : 'Sign in'}
+          </h2>
+          <p className="text-sm text-gray-400 mt-3">
+            {isRegister
+              ? 'Create your account to get started'
+              : 'Welcome back! Please sign in to continue'}
+          </p>
+
+          {/* Google OAuth Button */}
+          <button
+            type="button"
+            className="w-full mt-8 bg-white/5 border border-white/10 flex items-center justify-center h-12 rounded-full hover:bg-white/10 transition-colors"
+          >
+            <img
+              src="https://raw.githubusercontent.com/prebuiltui/prebuiltui/main/assets/login/googleLogo.svg"
+              alt="googleLogo"
+            />
+          </button>
+
+          {/* Divider */}
+          <div className="flex items-center gap-4 w-full my-5">
+            <div className="w-full h-px bg-white/10"></div>
+            <p className="w-full text-nowrap text-sm text-gray-400">or {isRegister ? 'sign up' : 'sign in'} with email</p>
+            <div className="w-full h-px bg-white/10"></div>
+          </div>
+
+          {/* Email Input */}
+          <div className="flex items-center w-full bg-transparent border border-white/10 h-12 rounded-full overflow-hidden pl-6 gap-2 focus-within:border-white/30 transition-colors">
+            <svg
+              width="16"
+              height="11"
+              viewBox="0 0 16 11"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                fillRule="evenodd"
+                clipRule="evenodd"
+                d="M0 .55.571 0H15.43l.57.55v9.9l-.571.55H.57L0 10.45zm1.143 1.138V9.9h13.714V1.69l-6.503 4.8h-.697zM13.749 1.1H2.25L8 5.356z"
+                fill="#9CA3AF"
+              />
+            </svg>
             <input
-              id="email"
               type="email"
+              placeholder="Email id"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-4 py-3 bg-[#1a1a1a] border border-white/10 rounded-lg focus:outline-none focus:border-white/30 transition-colors"
-              placeholder="you@example.com"
+              className="bg-transparent text-white placeholder-gray-500 outline-none text-sm w-full h-full"
             />
           </div>
 
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium mb-2">
-              Password
-            </label>
+          {/* Password Input */}
+          <div className="flex items-center mt-6 w-full bg-transparent border border-white/10 h-12 rounded-full overflow-hidden pl-6 gap-2 focus-within:border-white/30 transition-colors">
+            <svg
+              width="13"
+              height="17"
+              viewBox="0 0 13 17"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M13 8.5c0-.938-.729-1.7-1.625-1.7h-.812V4.25C10.563 1.907 8.74 0 6.5 0S2.438 1.907 2.438 4.25V6.8h-.813C.729 6.8 0 7.562 0 8.5v6.8c0 .938.729 1.7 1.625 1.7h9.75c.896 0 1.625-.762 1.625-1.7zM4.063 4.25c0-1.406 1.093-2.55 2.437-2.55s2.438 1.144 2.438 2.55V6.8H4.061z"
+                fill="#9CA3AF"
+              />
+            </svg>
             <input
-              id="password"
               type="password"
+              placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={6}
-              className="w-full px-4 py-3 bg-[#1a1a1a] border border-white/10 rounded-lg focus:outline-none focus:border-white/30 transition-colors"
-              placeholder="••••••••"
+              className="bg-transparent text-white placeholder-gray-500 outline-none text-sm w-full h-full"
             />
           </div>
 
-          {trialStarted && (
-            <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg text-green-400 text-sm">
-              Your 3-day free trial has started! Redirecting...
+          {/* Remember me & Forgot password */}
+          {!isRegister && (
+            <div className="w-full flex items-center justify-between mt-8 text-gray-400">
+              <div className="flex items-center gap-2">
+                <input
+                  className="h-5 w-5 cursor-pointer"
+                  type="checkbox"
+                  id="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                />
+                <label className="text-sm cursor-pointer" htmlFor="checkbox">
+                  Remember me
+                </label>
+              </div>
+              <a className="text-sm underline hover:text-white transition-colors" href="#">
+                Forgot password?
+              </a>
             </div>
           )}
 
+          {/* Error message */}
           {error && (
-            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
+            <div className="mt-6 w-full p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
               {error}
             </div>
           )}
 
+          {/* Trial started message */}
+          {trialStarted && (
+            <div className="mt-6 w-full p-3 bg-green-500/10 border border-green-500/20 rounded-lg text-green-400 text-sm">
+              Your 3-day free trial has started! Redirecting...
+            </div>
+          )}
+
+          {/* Submit button */}
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-white text-black font-semibold rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="mt-8 w-full h-11 rounded-full text-black bg-white hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
           >
             {loading ? 'Please wait...' : isRegister ? 'Sign Up' : 'Sign In'}
           </button>
-        </form>
 
-        <div className="mt-6 text-center">
-          <button
-            type="button"
-            onClick={() => {
-              setIsRegister(!isRegister);
-              setError('');
-            }}
-            className="text-sm text-gray-400 hover:text-white transition-colors"
-          >
+          {/* Toggle between login and register */}
+          <p className="text-gray-400 text-sm mt-4">
             {isRegister ? (
-              <>Already have an account? <span className="text-white font-medium">Sign in</span></>
+              <>
+                Already have an account?{' '}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsRegister(false);
+                    setError('');
+                  }}
+                  className="text-white hover:underline font-medium"
+                >
+                  Sign in
+                </button>
+              </>
             ) : (
-              <>Don't have an account? <span className="text-white font-medium">Sign up</span></>
+              <>
+                Don't have an account?{' '}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsRegister(true);
+                    setError('');
+                  }}
+                  className="text-white hover:underline font-medium"
+                >
+                  Sign up
+                </button>
+              </>
             )}
-          </button>
-        </div>
-
-        <div className="mt-8 text-center">
-          <Link
-            href="/"
-            className="text-sm text-gray-400 hover:text-white transition-colors"
-          >
-            ← Back to home
-          </Link>
-        </div>
+          </p>
+        </form>
       </div>
     </div>
   );

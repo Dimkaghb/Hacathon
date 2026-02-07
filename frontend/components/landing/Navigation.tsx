@@ -21,16 +21,16 @@ export default function Navigation() {
         </Link>
       </motion.div>
       
-      <motion.div 
+      <motion.div
         className="hidden gap-8 text-sm font-medium opacity-90 md:flex items-center"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5, delay: 0.3 }}
       >
-        <Link href="#features" className="hover:opacity-70 transition-opacity">Features</Link>
-        <Link href="#process" className="hover:opacity-70 transition-opacity">How It Works</Link>
+        <Link href="/#features" className="hover:opacity-70 transition-opacity">Features</Link>
+        <Link href="/#process" className="hover:opacity-70 transition-opacity">How It Works</Link>
         <Link href="/pricing" className="hover:opacity-70 transition-opacity">Pricing</Link>
-        <Link href="#faq" className="hover:opacity-70 transition-opacity">FAQ</Link>
+        <Link href="/#faq" className="hover:opacity-70 transition-opacity">FAQ</Link>
         <motion.div
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}

@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { useSubscription } from "@/lib/contexts/SubscriptionContext";
 import { CREDIT_COSTS } from "@/lib/types/subscription";
+import Navigation from "@/components/landing/Navigation";
+import BackgroundGif from "@/components/landing/BackgroundGif";
 
 export default function PricingPage() {
   const router = useRouter();
@@ -38,162 +40,111 @@ export default function PricingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white">
-      {/* Navigation */}
-      <nav className="border-b border-[#1a1a1a] px-6 py-4">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <button onClick={() => router.push("/")} className="text-xl font-bold">
-            Axel
-          </button>
-          <div className="flex items-center gap-4">
-            {isAuthenticated ? (
-              <button
-                onClick={handleGoToApp}
-                className="text-sm text-gray-400 hover:text-white transition-colors"
-              >
-                Go to App
-              </button>
-            ) : (
-              <button
-                onClick={() => router.push("/login")}
-                className="text-sm text-gray-400 hover:text-white transition-colors"
-              >
-                Sign In
-              </button>
-            )}
-          </div>
-        </div>
-      </nav>
+    <div className="min-h-screen bg-[#0a0a0a] text-white relative overflow-hidden">
+      {/* Video Background */}
+      <BackgroundGif speed={0.5} />
 
-      <div className="max-w-5xl mx-auto px-6 py-20">
+      {/* Navigation */}
+      <Navigation />
+
+      <div className="max-w-6xl mx-auto px-6 py-32 relative z-10">
         {/* Header */}
-        <div className="text-center mb-16">
-          <h1 className="text-4xl font-bold mb-4">Simple, transparent pricing</h1>
-          <p className="text-gray-400 text-lg max-w-xl mx-auto">
-            Start with a free trial. Scale with credits that match your creative workflow.
+        <div className="text-center mb-20">
+          <h1 className="text-5xl font-bold mb-4 tracking-tight">Pricing</h1>
+          <p className="text-gray-500 text-base max-w-lg mx-auto">
+            Start with a free trial. Scale as you grow.
           </p>
         </div>
 
         {/* Plans Grid */}
-        <div className="grid md:grid-cols-2 gap-8 max-w-3xl mx-auto mb-20">
+        <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-24">
           {/* Pro Plan */}
-          <div className="bg-[#141414] border border-purple-500/30 rounded-2xl p-8 relative">
-            <div className="absolute -top-3 left-6">
-              <span className="bg-purple-600 text-white text-xs font-medium px-3 py-1 rounded-full">
-                Most Popular
-              </span>
+          <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-8 relative hover:bg-white/[0.07] transition-all duration-300">
+            <div className="mb-8">
+              <h2 className="text-xl font-semibold mb-2 text-white">Pro</h2>
+              <div className="flex items-baseline gap-1 mb-1">
+                <span className="text-5xl font-bold tracking-tight text-white">$29</span>
+                <span className="text-gray-400 text-sm">/month</span>
+              </div>
+              <p className="text-sm text-gray-400">300 credits per month</p>
             </div>
 
-            <h2 className="text-2xl font-bold mb-1">Pro</h2>
-            <p className="text-gray-400 text-sm mb-6">For creators and professionals</p>
-
-            <div className="mb-6">
-              <span className="text-4xl font-bold">$29</span>
-              <span className="text-gray-400">/month</span>
-            </div>
-
-            <ul className="space-y-3 mb-8">
+            <div className="space-y-2.5 mb-8 text-sm text-gray-300">
               {[
-                "300 credits per month",
-                "Text-to-video generation",
-                "Image-to-video generation",
-                "Video extensions (up to 20 chains)",
+                "Text & image to video",
+                "Video extensions",
                 "Character consistency",
                 "Face analysis",
                 "AI prompt enhancement",
                 "720p resolution",
                 "Fast & standard models",
               ].map((feature) => (
-                <li key={feature} className="flex items-start gap-2 text-sm text-gray-300">
-                  <svg
-                    className="w-4 h-4 text-purple-400 mt-0.5 shrink-0"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
+                <div key={feature} className="flex items-center gap-2">
+                  <div className="w-1 h-1 rounded-full bg-white/60" />
                   {feature}
-                </li>
+                </div>
               ))}
-            </ul>
+            </div>
 
             {hasActiveSubscription ? (
               <button
                 onClick={handleGoToApp}
-                className="w-full py-3 bg-[#1a1a1a] text-gray-300 rounded-lg font-medium border border-[#333]"
+                className="w-full py-3 bg-white/5 text-gray-400 rounded-lg font-medium text-sm border border-white/10"
               >
                 Current Plan
               </button>
             ) : subscription?.is_trial === false && subscription?.status ? (
               <button
                 onClick={handleSubscribe}
-                className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors"
+                className="w-full py-3 bg-white hover:bg-white/90 text-black rounded-lg font-medium text-sm transition-colors"
               >
-                Subscribe Now
+                Subscribe
               </button>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <button
                   onClick={handleStartTrial}
-                  className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors"
+                  className="w-full py-3 bg-white hover:bg-white/90 text-black rounded-lg font-medium text-sm transition-colors"
                 >
-                  Start 3-Day Free Trial
+                  Start Free Trial
                 </button>
                 <p className="text-xs text-gray-500 text-center">
-                  50 credits included · No credit card required
+                  3 days · 50 credits · No card required
                 </p>
               </div>
             )}
           </div>
 
           {/* Enterprise */}
-          <div className="bg-[#141414] border border-[#2a2a2a] rounded-2xl p-8">
-            <h2 className="text-2xl font-bold mb-1">Enterprise</h2>
-            <p className="text-gray-400 text-sm mb-6">For teams and studios</p>
-
-            <div className="mb-6">
-              <span className="text-4xl font-bold">Custom</span>
+          <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-xl p-8 hover:bg-white/[0.05] transition-all duration-300">
+            <div className="mb-8">
+              <h2 className="text-xl font-semibold mb-2 text-white">Enterprise</h2>
+              <div className="flex items-baseline gap-1 mb-1">
+                <span className="text-5xl font-bold tracking-tight text-white">Custom</span>
+              </div>
+              <p className="text-sm text-gray-400">Flexible credit allocation</p>
             </div>
 
-            <ul className="space-y-3 mb-8">
+            <div className="space-y-2.5 mb-8 text-sm text-gray-300">
               {[
-                "Custom credit allocation",
-                "Priority video generation",
+                "Everything in Pro",
+                "Priority generation",
                 "Dedicated support",
                 "API access",
                 "Team collaboration",
                 "Custom integrations",
                 "SLA guarantees",
-                "Volume discounts",
               ].map((feature) => (
-                <li key={feature} className="flex items-start gap-2 text-sm text-gray-300">
-                  <svg
-                    className="w-4 h-4 text-gray-500 mt-0.5 shrink-0"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
+                <div key={feature} className="flex items-center gap-2">
+                  <div className="w-1 h-1 rounded-full bg-white/60" />
                   {feature}
-                </li>
+                </div>
               ))}
-            </ul>
+            </div>
 
             <a
               href="mailto:hello@axel.ai"
-              className="block w-full py-3 text-center bg-[#1a1a1a] hover:bg-[#222] text-gray-300 rounded-lg font-medium border border-[#333] transition-colors"
+              className="block w-full py-3 text-center bg-white/10 hover:bg-white/15 text-white rounded-lg font-medium text-sm transition-colors border border-white/10"
             >
               Contact Sales
             </a>
@@ -202,41 +153,32 @@ export default function PricingPage() {
 
         {/* Credit Costs Table */}
         <div className="max-w-2xl mx-auto">
-          <h3 className="text-xl font-bold text-center mb-8">Credit Usage</h3>
-          <div className="bg-[#141414] border border-[#2a2a2a] rounded-xl overflow-hidden">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-[#2a2a2a]">
-                  <th className="text-left text-xs text-gray-400 font-medium px-6 py-3">
-                    Operation
-                  </th>
-                  <th className="text-right text-xs text-gray-400 font-medium px-6 py-3">
-                    Credits
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="text-sm">
-                {[
-                  { name: "Video Generation (Standard)", credits: CREDIT_COSTS.video_generation_standard },
-                  { name: "Video Generation (Fast)", credits: CREDIT_COSTS.video_generation_fast },
-                  { name: "Video Extension (Standard)", credits: CREDIT_COSTS.video_extension_standard },
-                  { name: "Video Extension (Fast)", credits: CREDIT_COSTS.video_extension_fast },
-                  { name: "Face Analysis", credits: CREDIT_COSTS.face_analysis },
-                  { name: "Prompt Enhancement", credits: 0 },
-                ].map((item, i) => (
-                  <tr key={item.name} className={i < 5 ? "border-b border-[#1a1a1a]" : ""}>
-                    <td className="px-6 py-3 text-gray-300">{item.name}</td>
-                    <td className="px-6 py-3 text-right text-gray-300">
-                      {item.credits === 0 ? (
-                        <span className="text-green-400">Free</span>
-                      ) : (
-                        item.credits
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <h3 className="text-2xl font-bold text-center mb-10">Credit Costs</h3>
+          <div className="border border-[#1a1a1a] rounded-xl overflow-hidden">
+            {[
+              { name: "Video Generation (Standard)", credits: CREDIT_COSTS.video_generation_standard },
+              { name: "Video Generation (Fast)", credits: CREDIT_COSTS.video_generation_fast },
+              { name: "Video Extension (Standard)", credits: CREDIT_COSTS.video_extension_standard },
+              { name: "Video Extension (Fast)", credits: CREDIT_COSTS.video_extension_fast },
+              { name: "Face Analysis", credits: CREDIT_COSTS.face_analysis },
+              { name: "Prompt Enhancement", credits: 0 },
+            ].map((item, i, arr) => (
+              <div
+                key={item.name}
+                className={`flex items-center justify-between px-6 py-4 ${
+                  i < arr.length - 1 ? "border-b border-[#1a1a1a]" : ""
+                }`}
+              >
+                <span className="text-sm text-gray-300">{item.name}</span>
+                <span className="text-sm font-medium text-white">
+                  {item.credits === 0 ? (
+                    <span className="text-gray-500">Free</span>
+                  ) : (
+                    `${item.credits} credits`
+                  )}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
