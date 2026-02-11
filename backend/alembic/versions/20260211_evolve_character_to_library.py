@@ -41,7 +41,7 @@ def upgrade() -> None:
         SET source_images = json_build_array(
             json_build_object('url', source_image_url, 'angle', 'front', 'is_primary', true)
         )
-        WHERE source_image_url IS NOT NULL AND source_images = '[]'::json
+        WHERE source_image_url IS NOT NULL AND source_images::text = '[]'
     """)
 
     # 4. Make user_id NOT NULL now that all rows have been migrated
