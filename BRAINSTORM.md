@@ -92,7 +92,7 @@ That's it. User connects Character to Scene, clicks Generate, gets a video. The 
 - **Prompt template** — with variables like `{character}`, `{product}`, `{pain_point}` that get auto-filled
 - **Setting** — location, lighting, camera angle (e.g., "bathroom, natural window light, selfie angle")
 - **Duration** — default seconds for this scene type
-- **Tone** — the emotional register ("enthusiastic", "vulnerable", "authoritative")
+- Tone** — the emotional register ("enthusiastic", "vulnerable", "authoritative")
 - **Editable script** — the human-readable text the user sees and can customize
 
 Scene Gallery Categories
