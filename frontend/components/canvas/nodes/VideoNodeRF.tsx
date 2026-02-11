@@ -24,14 +24,16 @@ export default function VideoNodeRF({ data, selected }: CustomNodeProps) {
     hasImage: !!connectedImageUrl
   });
 
-  // Settings - duration only, resolution fixed to 720p
+  // Settings
   const [duration, setDuration] = useState(node.duration || 8);
+  const [useFastModel, setUseFastModel] = useState(node.use_fast_model || false);
 
   const canGenerate = !!(connectedPrompt && connectedPrompt.trim().length > 0);
+  const creditCost = useFastModel ? CREDIT_COSTS.video_generation_fast : CREDIT_COSTS.video_generation_standard;
 
   const handleGenerate = () => {
     if (canGenerate) {
-      data.onUpdate?.({ duration, resolution: '720p' });
+      data.onUpdate?.({ duration, resolution: '720p', use_fast_model: useFastModel });
       data.onGenerate?.();
     }
   };
@@ -108,6 +110,42 @@ export default function VideoNodeRF({ data, selected }: CustomNodeProps) {
           </div>
         </div>
 
+        {/* Model Selection */}
+        <div className="mb-3">
+          <label className="rf-label">Model</label>
+          <div
+            className="flex rounded-md overflow-hidden border border-[#2a2a2a]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => {
+                setUseFastModel(false);
+                data.onUpdate?.({ use_fast_model: false });
+              }}
+              className={`flex-1 px-2 py-1 text-[10px] font-medium transition-colors ${
+                !useFastModel
+                  ? 'bg-[#2a2a2a] text-white'
+                  : 'bg-transparent text-[#606060] hover:text-[#808080]'
+              }`}
+            >
+              Veo 3.1
+            </button>
+            <button
+              onClick={() => {
+                setUseFastModel(true);
+                data.onUpdate?.({ use_fast_model: true });
+              }}
+              className={`flex-1 px-2 py-1 text-[10px] font-medium transition-colors ${
+                useFastModel
+                  ? 'bg-[#2a2a2a] text-white'
+                  : 'bg-transparent text-[#606060] hover:text-[#808080]'
+              }`}
+            >
+              Veo 3.1 Fast
+            </button>
+          </div>
+        </div>
+
         {/* Duration Setting */}
         <div className="mb-3">
           <label className="rf-label">Duration (s)</label>
@@ -159,7 +197,7 @@ export default function VideoNodeRF({ data, selected }: CustomNodeProps) {
         >
           <span className="flex items-center justify-center gap-1.5">
             {status === 'processing' ? 'Generating...' : status === 'failed' ? 'Retry' : 'Generate'}
-            {status !== 'processing' && <CreditCostBadge credits={CREDIT_COSTS.video_generation_standard} />}
+            {status !== 'processing' && <CreditCostBadge credits={creditCost} />}
           </span>
         </button>
 

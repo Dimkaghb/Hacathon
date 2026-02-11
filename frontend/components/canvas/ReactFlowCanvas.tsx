@@ -793,6 +793,7 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
         resolution: videoNode.data?.resolution || '720p',
         duration: videoNode.data?.duration || 8,
         aspect_ratio: '16:9',
+        use_fast_model: videoNode.data?.use_fast_model || false,
       });
 
       console.log('Video generation job started:', job);

@@ -533,6 +533,7 @@ export const aiApi = {
     aspect_ratio?: string;
     duration?: number;
     negative_prompt?: string;
+    use_fast_model?: boolean;
   }) => {
     return apiFetch<{
       job_id: string;

@@ -13,6 +13,9 @@ class NodeType(str, Enum):
     RATIO = "ratio"
     SCENE = "scene"
     EXTENSION = "extension"
+    CHARACTER = "character"
+    PRODUCT = "product"
+    SETTING = "setting"
 
 
 class NodeStatus(str, Enum):

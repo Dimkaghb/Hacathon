@@ -119,8 +119,33 @@ export default function LoginPage() {
       </div>
 
       {/* Right side form - Dark mode */}
-      <div className="w-full flex flex-col items-center justify-center bg-[#0a0a0a] px-6">
+      <div className="w-full flex flex-col items-center justify-center bg-[#0a0a0a] px-6 relative">
+        {/* Back button */}
+        <button
+          onClick={() => router.push('/')}
+          className="absolute top-6 left-6 flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 20 20"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M12.5 5L7.5 10L12.5 15"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          <span className="text-sm font-medium">Back</span>
+        </button>
         <form onSubmit={handleSubmit} className="md:w-96 w-80 flex flex-col items-center justify-center">
+          {/* Logo */}
+          
+
           <h2 className="text-4xl text-white font-medium">
             {isRegister ? 'Sign up' : 'Sign in'}
           </h2>
