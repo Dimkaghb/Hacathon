@@ -100,7 +100,7 @@ Scene Gallery Categories
 | Category | Scene Types | Duration |
 |----------|------------|----------|
 | **Hooks | Curiosity, POV, Controversy, Social Proof, Relatable, Urgency, Challenge | 3-5s |
-| **Body** | Problem, Solution, Proof, Tutorial Step, Lifestyle Moment, Product Demo | 5-10s |
+| Body** | Problem, Solution, Proof, Tutorial Step, Lifestyle Moment, Product Demo | 5-10s |
 | **Closers** | CTA, Before/After Reveal, Testimonial Wrap, Offer/Discount | 3-5s |
 | **Full Formats** | Complete Testimonial (4 scenes), GRWM (5 scenes), Unboxing (4 scenes), Day in the Life (6 scenes) | 15-60s |
 
