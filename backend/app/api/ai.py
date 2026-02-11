@@ -127,9 +127,11 @@ async def analyze_face(
 
     # Create character
     character = Character(
+        user_id=current_user.id,
         project_id=request.project_id,
         name=request.character_name,
         source_image_url=request.image_url,
+        source_images=[{"url": request.image_url, "angle": "front", "is_primary": True}],
         analysis_data={},
     )
     db.add(character)
@@ -422,13 +424,16 @@ async def get_latest_job_for_node(
 async def create_character(
     character_data: CharacterCreate,
     project: Project = Depends(verify_project_access),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a character without face analysis."""
     character = Character(
+        user_id=current_user.id,
         project_id=project.id,
         name=character_data.name,
         source_image_url=character_data.source_image_url,
+        source_images=[{"url": character_data.source_image_url, "angle": "front", "is_primary": True}],
         analysis_data={},
     )
     db.add(character)
@@ -440,10 +445,11 @@ async def create_character(
 @router.get("/{project_id}/characters", response_model=list[CharacterResponse])
 async def list_characters(
     project: Project = Depends(verify_project_access),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """List all characters in a project."""
+    """List all characters for the current user (user-level library)."""
     result = await db.execute(
-        select(Character).where(Character.project_id == project.id)
+        select(Character).where(Character.user_id == current_user.id)
     )
     return result.scalars().all()

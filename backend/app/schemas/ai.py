@@ -83,11 +83,16 @@ class CharacterCreate(BaseModel):
 
 class CharacterResponse(BaseModel):
     id: UUID
-    project_id: UUID
+    user_id: UUID
+    project_id: Optional[UUID] = None
     name: Optional[str] = None
-    source_image_url: str
+    source_image_url: Optional[str] = None
+    source_images: List[Dict[str, Any]] = []
+    prompt_dna: Optional[str] = None
+    voice_profile: Dict[str, Any] = {}
+    performance_style: Dict[str, Any] = {}
     embedding_id: Optional[str] = None
-    analysis_data: Dict[str, Any]
+    analysis_data: Dict[str, Any] = {}
 
     class Config:
         from_attributes = True
