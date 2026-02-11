@@ -45,6 +45,9 @@ class VideoGenerateRequest(BaseModel):
     prompt: str
     image_url: Optional[str] = None
     character_id: Optional[UUID] = None
+    wardrobe_preset_id: Optional[UUID] = None
+    product_data: Optional[Dict[str, Any]] = None
+    setting_data: Optional[Dict[str, Any]] = None
     resolution: VideoResolution = VideoResolution.RES_1080P
     aspect_ratio: AspectRatio = AspectRatio.RATIO_16_9
     duration: int = 8
