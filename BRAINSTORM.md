@@ -95,7 +95,7 @@ That's it. User connects Character to Scene, clicks Generate, gets a video. The 
 - **Tone** — the emotional register ("enthusiastic", "vulnerable", "authoritative")
 - **Editable script** — the human-readable text the user sees and can customize
 
-**Scene Gallery Categories:**
+Scene Gallery Categories
 
 | Category | Scene Types | Duration |
 |----------|------------|----------|
