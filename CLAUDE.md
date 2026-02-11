@@ -168,3 +168,23 @@ docker exec videogen-api alembic upgrade head
 # Rebuild after code changes
 cd backend && docker-compose build api && docker-compose up -d api
 ```
+
+## Phase 2 Implementation Progress (Scene Gallery, Templates, Timeline)
+
+### Step 2.1 — Scene Gallery (Completed)
+- **SceneDefinition model**: `backend/app/models/scene_definition.py` — scene types (hooks, body, closers)
+- **Scene Definitions API**: `backend/app/api/scene_definitions.py` mounted at `/api/scene-definitions`
+- **SceneGalleryPanel**: `frontend/components/canvas/panels/SceneGalleryPanel.tsx` — slide-out scene picker
+- **Seeds**: `backend/app/seeds/scene_definitions.py` — 14 system scene definitions
+- **Migration**: `backend/alembic/versions/20260211_add_scene_definitions.py`
+
+### Step 2.2 — Multi-Node Templates (Completed)
+- **Template model**: `backend/app/models/template.py` — template blueprints with graph_definition JSON
+- **Template schemas**: `backend/app/schemas/template.py` — TemplateCreate, TemplateResponse, TemplateInstantiateRequest/Response
+- **Templates API**: `backend/app/api/templates.py` mounted at `/api/templates` — CRUD + instantiate endpoint
+- **Instantiate endpoint**: `POST /api/templates/{id}/instantiate` — stamps nodes/connections onto a project with variable substitution
+- **Seeds**: `backend/app/seeds/templates.py` — 7 system templates (Product Testimonial, GRWM, Before/After, Unboxing, PAS, Day in the Life, Tutorial)
+- **Migration**: `backend/alembic/versions/20260211_add_templates.py`
+- **TemplateBrowserPanel**: `frontend/components/canvas/panels/TemplateBrowserPanel.tsx` — slide-out template browser with category tabs, search, variable input
+- **Frontend API client**: `templatesApi` in `frontend/lib/api.ts` — list, getById, instantiate
+- **ReactFlowCanvas**: "Templates" dock item replaces "Components", opens TemplateBrowserPanel, `handleInstantiateTemplate` stamps graph onto canvas

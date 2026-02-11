@@ -11,6 +11,12 @@ from app.schemas.ai import (
     VideoExtendRequest,
     JobStatusResponse,
 )
+from app.schemas.template import (
+    TemplateCreate,
+    TemplateResponse,
+    TemplateInstantiateRequest,
+    TemplateInstantiateResponse,
+)
 
 __all__ = [
     "UserCreate",
@@ -33,4 +39,8 @@ __all__ = [
     "VideoGenerateRequest",
     "VideoExtendRequest",
     "JobStatusResponse",
+    "TemplateCreate",
+    "TemplateResponse",
+    "TemplateInstantiateRequest",
+    "TemplateInstantiateResponse",
 ]

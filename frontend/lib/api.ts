@@ -802,3 +802,68 @@ export const sceneDefinitionsApi = {
     return apiFetch<SceneDefinitionItem>(`/api/scene-definitions/${id}`);
   },
 };
+
+// Templates API
+export interface TemplateItem {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string;
+  is_system: boolean;
+  creator_id: string | null;
+  thumbnail_url: string | null;
+  scene_count: number;
+  estimated_duration: string | null;
+  best_for: string[];
+  graph_definition: {
+    nodes: Array<{
+      ref_id: string;
+      type: string;
+      position: { x: number; y: number };
+      data: Record<string, any>;
+      label?: string;
+      required?: boolean;
+    }>;
+    connections: Array<{
+      source: string;
+      target: string;
+      source_handle?: string;
+      target_handle?: string;
+    }>;
+    variables: Array<{
+      key: string;
+      label: string;
+      type: string;
+      placeholder?: string;
+    }>;
+  };
+  usage_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export const templatesApi = {
+  list: async (category?: string) => {
+    const params = category ? `?category=${encodeURIComponent(category)}` : '';
+    return apiFetch<TemplateItem[]>(`/api/templates${params}`);
+  },
+
+  getById: async (id: string) => {
+    return apiFetch<TemplateItem>(`/api/templates/${id}`);
+  },
+
+  instantiate: async (templateId: string, data: {
+    project_id: string;
+    offset_x?: number;
+    offset_y?: number;
+    variables?: Record<string, string>;
+  }) => {
+    return apiFetch<{ nodes: any[]; connections: any[] }>(
+      `/api/templates/${templateId}/instantiate`,
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    );
+  },
+};

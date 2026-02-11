@@ -33,7 +33,8 @@ import { edgeTypes } from './edges';
 import { FloatingDock, DockItem } from '@/components/ui/floating-dock';
 import { IconPhoto, IconMessageCircle, IconVideo, IconPlayerTrackNext, IconComponents, IconUser, IconPackage, IconMapPin, IconMovie } from '@tabler/icons-react';
 import SceneGalleryPanel from './panels/SceneGalleryPanel';
-import { SceneDefinitionItem } from '@/lib/api';
+import TemplateBrowserPanel from './panels/TemplateBrowserPanel';
+import { SceneDefinitionItem, TemplateItem, templatesApi } from '@/lib/api';
 
 const SCREENSHOT_WIDTH = 640;
 const SCREENSHOT_HEIGHT = 360;
@@ -190,6 +191,7 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
   const [showComingSoon, setShowComingSoon] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showSceneGallery, setShowSceneGallery] = useState(false);
+  const [showTemplateBrowser, setShowTemplateBrowser] = useState(false);
   // Track which scene node is requesting gallery (for "Change scene type")
   const sceneGalleryTargetNodeRef = useRef<string | null>(null);
 
@@ -1041,6 +1043,48 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
     }
   };
 
+  // Handle instantiating a template onto the canvas
+  const handleInstantiateTemplate = async (template: TemplateItem, variables: Record<string, string>) => {
+    setShowTemplateBrowser(false);
+
+    try {
+      // Calculate offset to place template at viewport center
+      let offsetX = 0;
+      let offsetY = 0;
+
+      if (reactFlowInstance.current) {
+        const centerX = window.innerWidth / 2;
+        const centerY = window.innerHeight / 2;
+        const flowCenter = reactFlowInstance.current.screenToFlowPosition({ x: centerX, y: centerY });
+        offsetX = flowCenter.x;
+        offsetY = flowCenter.y;
+      }
+
+      const result = await templatesApi.instantiate(template.id, {
+        project_id: projectId,
+        offset_x: offsetX,
+        offset_y: offsetY,
+        variables: Object.keys(variables).length > 0 ? variables : undefined,
+      });
+
+      // Add returned nodes to state
+      const newNodes = result.nodes as Node[];
+      const newConnections = result.connections as BackendConnection[];
+
+      setBackendNodes(prev => [...prev, ...newNodes]);
+      setBackendConnections(prev => [...prev, ...newConnections]);
+
+      // Transform and add to React Flow
+      const allNodes = [...backendNodesRef.current, ...newNodes];
+      const allConnections = [...backendConnectionsRef.current, ...newConnections];
+
+      setNodes(nds => [...nds, ...transformBackendNodesToRF(newNodes, allConnections)]);
+      setEdges(eds => [...eds, ...transformBackendConnectionsToRF(newConnections)]);
+    } catch (error) {
+      console.error('Failed to instantiate template:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="w-full h-full flex items-center justify-center text-white bg-[#1a1a1a]">
@@ -1149,17 +1193,16 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
       id: 'scene',
     },
     {
-      title: "Components",
+      title: "Templates",
       icon: (
         <IconComponents className="h-full w-full text-neutral-500 dark:text-neutral-300" />
       ),
       href: "#",
       onClick: (e: React.MouseEvent) => {
         e.preventDefault();
-        setShowComingSoon(true);
-        setTimeout(() => setShowComingSoon(false), 2000);
+        setShowTemplateBrowser(true);
       },
-      id: 'components',
+      id: 'templates',
     },
   ];
 
@@ -1235,6 +1278,13 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
           sceneGalleryTargetNodeRef.current = null;
         }}
         onSelect={handleAddSceneFromGallery}
+      />
+
+      {/* Template Browser Panel */}
+      <TemplateBrowserPanel
+        open={showTemplateBrowser}
+        onClose={() => setShowTemplateBrowser(false)}
+        onSelect={handleInstantiateTemplate}
       />
     </div>
   );
