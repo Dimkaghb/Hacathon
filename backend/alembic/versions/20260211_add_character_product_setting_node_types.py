@@ -18,9 +18,10 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.execute("ALTER TYPE nodetype ADD VALUE IF NOT EXISTS 'character'")
-    op.execute("ALTER TYPE nodetype ADD VALUE IF NOT EXISTS 'product'")
-    op.execute("ALTER TYPE nodetype ADD VALUE IF NOT EXISTS 'setting'")
+    # SQLAlchemy sends enum member NAMES (uppercase) by default
+    op.execute("ALTER TYPE nodetype ADD VALUE IF NOT EXISTS 'CHARACTER'")
+    op.execute("ALTER TYPE nodetype ADD VALUE IF NOT EXISTS 'PRODUCT'")
+    op.execute("ALTER TYPE nodetype ADD VALUE IF NOT EXISTS 'SETTING'")
 
 
 def downgrade() -> None:
