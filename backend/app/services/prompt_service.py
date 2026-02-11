@@ -197,4 +197,50 @@ Return as JSON with keys: clarity_score, visual_richness, issues, missing_elemen
         return {"raw_analysis": response_text}
 
 
+def build_product_context(product_data: dict) -> str:
+    """Convert structured product data into prompt-friendly text."""
+    parts = []
+    if product_data.get("product_name"):
+        parts.append(f"The product featured is {product_data['product_name']}")
+    if product_data.get("brand"):
+        parts.append(f"by {product_data['brand']}")
+    if product_data.get("benefits"):
+        parts.append(f"Key benefits: {', '.join(product_data['benefits'])}")
+    if product_data.get("tone"):
+        parts.append(f"The tone should be {product_data['tone']}")
+    if product_data.get("target_audience"):
+        parts.append(f"Target audience: {product_data['target_audience']}")
+    return ". ".join(parts) + "." if parts else ""
+
+
+def build_setting_context(setting_data: dict) -> str:
+    """Convert structured setting data into prompt-friendly text."""
+    parts = []
+    if setting_data.get("location"):
+        parts.append(f"Setting: {setting_data['location']}")
+    if setting_data.get("lighting"):
+        parts.append(f"Lighting: {setting_data['lighting'].replace('-', ' ')}")
+    if setting_data.get("camera_angle"):
+        parts.append(f"Camera: {setting_data['camera_angle'].replace('-', ' ')}")
+    if setting_data.get("vibe"):
+        parts.append(f"Visual vibe: {setting_data['vibe'].replace('-', ' ')}")
+    if setting_data.get("custom_details"):
+        parts.append(setting_data["custom_details"])
+    return ". ".join(parts) if parts else ""
+
+
+def format_performance(performance_style: dict) -> str:
+    """Convert performance style dict into prompt text."""
+    parts = []
+    if performance_style.get("gestures"):
+        parts.append(f"Gestures: {performance_style['gestures']}")
+    if performance_style.get("camera_behavior"):
+        parts.append(f"Camera behavior: {performance_style['camera_behavior']}")
+    if performance_style.get("pacing"):
+        parts.append(f"Pacing: {performance_style['pacing']}")
+    if performance_style.get("mannerisms"):
+        parts.append(f"Mannerisms: {performance_style['mannerisms']}")
+    return ". ".join(parts) if parts else ""
+
+
 prompt_service = PromptService()

@@ -70,11 +70,11 @@ Backend (FastAPI) ── Services Layer ── Celery Workers
 
 ### Backend layers (`backend/app/`)
 
-- **`api/`** — FastAPI route handlers. Routes are mounted under `/api/auth`, `/api/projects`, `/api/ai`, `/api/files`. The `ai.py` endpoint is the most complex (~414 lines), orchestrating video generation/extension/face analysis.
+- **`api/`** — FastAPI route handlers. Routes: `/api/auth`, `/api/projects`, `/api/ai`, `/api/files`, `/api/characters`, `/api/subscriptions`, `/api/webhooks`. `ai.py` orchestrates video generation/extension/face analysis. `characters.py` provides user-level character library CRUD + wardrobe presets.
 - **`services/`** — Business logic. `veo_service.py` wraps the Google Veo 3.1 API (generate, extend, poll). `face_service.py` handles face embedding extraction. `prompt_service.py` enhances prompts via Gemini. `storage_service.py` handles GCS uploads/downloads.
 - **`workers/`** — Celery worker implementations (`video_worker.py`, `extension_worker.py`, `face_worker.py`). Inherit from `base.py` BaseWorker. Launched via `runner.py`.
 - **`tasks/`** — Celery task definitions that dispatch to workers. `video_tasks.py` defines `generate_video` and `extend_video`.
-- **`models/`** — SQLAlchemy ORM models with UUID primary keys. Key models: User, Project, Node, Connection, Job, Character. All use async sessions.
+- **`models/`** — SQLAlchemy ORM models with UUID primary keys. Key models: User, Project, Node, Connection, Job, Character, WardrobePreset. All use async sessions.
 - **`schemas/`** — Pydantic request/response schemas mirroring models.
 - **`core/`** — Infrastructure: `database.py` (async PostgreSQL via asyncpg), `celery_app.py`, `redis.py`, `security.py` (JWT + bcrypt).
 - **`config.py`** — pydantic-settings `Settings` class. All config comes from environment variables / `.env` file.
@@ -118,7 +118,7 @@ Backend (FastAPI) ── Services Layer ── Celery Workers
 
 **Job status lifecycle:** PENDING → PROCESSING → COMPLETED/FAILED
 
-**Node types:** PROMPT, IMAGE, VIDEO, EXTENSION, CONTAINER, RATIO, SCENE
+**Node types:** PROMPT, IMAGE, VIDEO, EXTENSION, CONTAINER, RATIO, SCENE, CHARACTER, PRODUCT, SETTING
 
 ## Environment Variables
 
@@ -136,3 +136,25 @@ PostgreSQL 14+, Redis 6+, Qdrant (vector DB for face embeddings), Google Cloud S
 ## API Documentation
 
 When the backend is running: Swagger UI at `/docs`, ReDoc at `/redoc`.
+
+## Phase 1 Implementation Progress (Character Library, Product/Setting Nodes)
+
+### Completed Backend Changes
+- **New node types**: CHARACTER, PRODUCT, SETTING added to `NodeType` enum (models + schemas + migration)
+- **Character model evolved**: Now user-scoped (`user_id` FK) instead of project-scoped. New fields: `source_images` (JSON array), `prompt_dna`, `voice_profile`, `performance_style`, `metadata`
+- **WardrobePreset model**: `backend/app/models/wardrobe_preset.py` — outfit variations per character
+- **Character Library API**: `backend/app/api/characters.py` mounted at `/api/characters` — full CRUD + wardrobe + face analysis
+- **Schemas**: `backend/app/schemas/character.py`, `backend/app/schemas/wardrobe_preset.py`
+- **Prompt context injection**: `build_product_context()`, `build_setting_context()`, `format_performance()` in `prompt_service.py`
+- **Video task enrichment**: `video_tasks.py` now accepts `wardrobe_preset_id`, `product_data`, `setting_data` and builds enriched prompts
+- **VideoGenerateRequest** updated with `wardrobe_preset_id`, `product_data`, `setting_data` fields
+- **Migrations**: `20260211_add_character_product_setting_node_types.py`, `20260211_evolve_character_to_library.py`
+
+### Docker Commands
+```bash
+# Always apply migrations via docker (not local alembic)
+docker exec videogen-api alembic upgrade head
+
+# Rebuild after code changes
+cd backend && docker-compose build api && docker-compose up -d api
+```

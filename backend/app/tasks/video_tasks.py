@@ -20,6 +20,7 @@ from app.models.node import Node, NodeStatus
 from app.models.job import Job, JobStatus
 from app.config import settings
 from app.services.subscription_service import refund_credits_sync
+from app.services.prompt_service import build_product_context, build_setting_context, format_performance
 
 logger = logging.getLogger(__name__)
 
@@ -235,6 +236,9 @@ def generate_video(
     prompt: str,
     image_url: Optional[str] = None,
     character_id: Optional[str] = None,
+    wardrobe_preset_id: Optional[str] = None,
+    product_data: Optional[Dict[str, Any]] = None,
+    setting_data: Optional[Dict[str, Any]] = None,
     resolution: str = "720p",
     aspect_ratio: str = "16:9",
     duration: int = 8,
@@ -270,12 +274,52 @@ def generate_video(
         finally:
             loop.close()
 
+    # Load wardrobe preset + character model extras from DB
+    wardrobe_snippet = None
+    character_performance = None
+    if character_id or wardrobe_preset_id:
+        with Session(sync_engine) as db:
+            if wardrobe_preset_id:
+                from app.models.wardrobe_preset import WardrobePreset
+                wp = db.execute(
+                    select(WardrobePreset).where(WardrobePreset.id == UUID(wardrobe_preset_id))
+                ).scalar_one_or_none()
+                if wp and wp.prompt_snippet:
+                    wardrobe_snippet = wp.prompt_snippet
+            if character_id:
+                from app.models.character import Character
+                char = db.execute(
+                    select(Character).where(Character.id == UUID(character_id))
+                ).scalar_one_or_none()
+                if char:
+                    if char.prompt_dna and not character_description:
+                        character_description = char.prompt_dna
+                    if char.performance_style:
+                        character_performance = format_performance(char.performance_style)
+
+    # Build enriched prompt with all context
+    final_prompt = prompt
+    if character_description:
+        final_prompt += f"\n\nCharacter: {character_description}"
+    if wardrobe_snippet:
+        final_prompt += f"\n{wardrobe_snippet}"
+    if character_performance:
+        final_prompt += f"\nPerformance: {character_performance}"
+    if product_data:
+        product_ctx = build_product_context(product_data)
+        if product_ctx:
+            final_prompt += f"\n\nProduct context: {product_ctx}"
+    if setting_data:
+        setting_ctx = build_setting_context(setting_data)
+        if setting_ctx:
+            final_prompt += f"\n\nSetting: {setting_ctx}"
+
     generation_type = "image-to-video" if image_url else "text-to-video"
 
     # Define the operation starter
     async def start_operation() -> str:
         return await veo_service.generate_video(
-            prompt=prompt,
+            prompt=final_prompt,
             image_url=image_url,
             resolution=resolution,
             aspect_ratio=aspect_ratio,
@@ -285,7 +329,7 @@ def generate_video(
             num_videos=num_videos,
             use_fast_model=use_fast_model,
             enhance_prompt=True,
-            character_description=character_description,
+            character_description=None,  # Already baked into final_prompt
         )
 
     # Define result builder
