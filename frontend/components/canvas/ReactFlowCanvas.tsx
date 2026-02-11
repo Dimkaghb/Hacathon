@@ -31,7 +31,9 @@ import { useSubscription } from '@/lib/contexts/SubscriptionContext';
 import { nodeTypes } from './nodes';
 import { edgeTypes } from './edges';
 import { FloatingDock, DockItem } from '@/components/ui/floating-dock';
-import { IconPhoto, IconMessageCircle, IconVideo, IconPlayerTrackNext, IconComponents, IconUser, IconPackage, IconMapPin } from '@tabler/icons-react';
+import { IconPhoto, IconMessageCircle, IconVideo, IconPlayerTrackNext, IconComponents, IconUser, IconPackage, IconMapPin, IconMovie } from '@tabler/icons-react';
+import SceneGalleryPanel from './panels/SceneGalleryPanel';
+import { SceneDefinitionItem } from '@/lib/api';
 
 const SCREENSHOT_WIDTH = 640;
 const SCREENSHOT_HEIGHT = 360;
@@ -187,6 +189,9 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
   const [loading, setLoading] = useState(true);
   const [showComingSoon, setShowComingSoon] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showSceneGallery, setShowSceneGallery] = useState(false);
+  // Track which scene node is requesting gallery (for "Change scene type")
+  const sceneGalleryTargetNodeRef = useRef<string | null>(null);
 
   // Ref for shareToken to use in callbacks
   const shareTokenRef = useRef(shareToken);
@@ -296,6 +301,11 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
           onDelete: () => handleNodeDelete(node.id),
           onGenerate: node.type === 'video' ? () => handleGenerateVideo(node.id) : undefined,
           onExtend: node.type === 'extension' ? () => handleExtendVideo(node.id) : undefined,
+          onGenerateScene: node.type === 'scene' ? () => handleGenerateVideo(node.id) : undefined,
+          onOpenSceneGallery: node.type === 'scene' ? () => {
+            sceneGalleryTargetNodeRef.current = node.id;
+            setShowSceneGallery(true);
+          } : undefined,
           // Connected data for video nodes
           connectedPrompt: connectedData?.prompt,
           connectedImageUrl: connectedData?.imageUrl,
@@ -953,6 +963,84 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
     }
   }, [updateNodeData, startJobPolling, refreshSubscription]);
 
+  // Handle adding a scene node from the gallery
+  const handleAddSceneFromGallery = async (sceneDefinition: SceneDefinitionItem | null) => {
+    setShowSceneGallery(false);
+
+    // If we have a target node (changing scene type on existing node), update it
+    const targetNodeId = sceneGalleryTargetNodeRef.current;
+    sceneGalleryTargetNodeRef.current = null;
+
+    if (targetNodeId) {
+      const nodeData = sceneDefinition
+        ? {
+            scene_definition_id: sceneDefinition.id,
+            scene_name: sceneDefinition.name,
+            scene_category: sceneDefinition.category,
+            scene_tone: sceneDefinition.tone,
+            scene_duration: sceneDefinition.duration,
+            prompt_template: sceneDefinition.prompt_template,
+            default_script: sceneDefinition.default_script,
+            script_text: sceneDefinition.default_script || '',
+            setting: sceneDefinition.setting,
+          }
+        : {
+            scene_definition_id: null,
+            scene_name: null,
+            scene_category: null,
+            scene_tone: null,
+            scene_duration: 5,
+            prompt_template: null,
+            default_script: null,
+            script_text: '',
+            setting: {},
+          };
+      handleNodeUpdate(targetNodeId, nodeData);
+      return;
+    }
+
+    // Otherwise create a new scene node
+    try {
+      const randomOffset = () => Math.floor(Math.random() * 100) - 50;
+      let posX = 300;
+      let posY = 300;
+
+      if (reactFlowInstance.current) {
+        const centerX = window.innerWidth / 2;
+        const centerY = window.innerHeight / 2;
+        const flowCenter = reactFlowInstance.current.screenToFlowPosition({ x: centerX, y: centerY });
+        posX = flowCenter.x + randomOffset();
+        posY = flowCenter.y + randomOffset();
+      }
+
+      const nodeData = sceneDefinition
+        ? {
+            scene_definition_id: sceneDefinition.id,
+            scene_name: sceneDefinition.name,
+            scene_category: sceneDefinition.category,
+            scene_tone: sceneDefinition.tone,
+            scene_duration: sceneDefinition.duration,
+            prompt_template: sceneDefinition.prompt_template,
+            default_script: sceneDefinition.default_script,
+            script_text: sceneDefinition.default_script || '',
+            setting: sceneDefinition.setting,
+          }
+        : {};
+
+      const newNode = await nodesApi.create(projectId, {
+        type: 'scene',
+        position_x: posX,
+        position_y: posY,
+        data: nodeData,
+      }, shareToken);
+
+      setBackendNodes(prev => [...prev, newNode as Node]);
+      setNodes(nds => [...nds, ...transformBackendNodesToRF([newNode as Node], backendConnections)]);
+    } catch (error) {
+      console.error('Failed to create scene node:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="w-full h-full flex items-center justify-center text-white bg-[#1a1a1a]">
@@ -1048,6 +1136,19 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
       id: 'setting',
     },
     {
+      title: "Scene",
+      icon: (
+        <IconMovie className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+      ),
+      href: "#",
+      onClick: (e: React.MouseEvent) => {
+        e.preventDefault();
+        sceneGalleryTargetNodeRef.current = null;
+        setShowSceneGallery(true);
+      },
+      id: 'scene',
+    },
+    {
       title: "Components",
       icon: (
         <IconComponents className="h-full w-full text-neutral-500 dark:text-neutral-300" />
@@ -1125,6 +1226,16 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
           Coming soon
         </div>
       )}
+
+      {/* Scene Gallery Panel */}
+      <SceneGalleryPanel
+        open={showSceneGallery}
+        onClose={() => {
+          setShowSceneGallery(false);
+          sceneGalleryTargetNodeRef.current = null;
+        }}
+        onSelect={handleAddSceneFromGallery}
+      />
     </div>
   );
 }

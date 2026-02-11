@@ -8,6 +8,8 @@ export interface NodeData {
   onDelete?: () => void;
   onGenerate?: () => void;
   onExtend?: () => void;
+  onGenerateScene?: () => void;
+  onOpenSceneGallery?: () => void;
   connectedPrompt?: string;
   connectedImageUrl?: string;
   connectedVideoUrl?: string;

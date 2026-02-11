@@ -770,3 +770,35 @@ export const characterLibraryApi = {
     });
   },
 };
+
+// Scene Definitions API
+export interface SceneDefinitionItem {
+  id: string;
+  name: string;
+  category: string;
+  subcategory: string | null;
+  description: string | null;
+  thumbnail_url: string | null;
+  prompt_template: string;
+  default_script: string | null;
+  setting: Record<string, any>;
+  duration: number;
+  tone: string | null;
+  is_system: boolean;
+  creator_id: string | null;
+  usage_count: number;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export const sceneDefinitionsApi = {
+  list: async (category?: string) => {
+    const params = category ? `?category=${encodeURIComponent(category)}` : '';
+    return apiFetch<SceneDefinitionItem[]>(`/api/scene-definitions${params}`);
+  },
+
+  getById: async (id: string) => {
+    return apiFetch<SceneDefinitionItem>(`/api/scene-definitions/${id}`);
+  },
+};

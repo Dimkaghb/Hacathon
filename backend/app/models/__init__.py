@@ -8,6 +8,7 @@ from app.models.job import Job
 from app.models.subscription import Subscription
 from app.models.credit_transaction import CreditTransaction
 from app.models.polar_event import PolarWebhookEvent
+from app.models.scene_definition import SceneDefinition
 
 __all__ = [
     "User",
@@ -20,4 +21,5 @@ __all__ = [
     "Subscription",
     "CreditTransaction",
     "PolarWebhookEvent",
+    "SceneDefinition",
 ]
