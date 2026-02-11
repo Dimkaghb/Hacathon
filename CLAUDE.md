@@ -150,6 +150,16 @@ When the backend is running: Swagger UI at `/docs`, ReDoc at `/redoc`.
 - **VideoGenerateRequest** updated with `wardrobe_preset_id`, `product_data`, `setting_data` fields
 - **Migrations**: `20260211_add_character_product_setting_node_types.py`, `20260211_evolve_character_to_library.py`
 
+### Completed Frontend Changes
+- **CharacterNodeRF, ProductNodeRF, SettingNodeRF**: `frontend/components/canvas/nodes/` — 3 new React Flow node components
+- **CharacterLibraryPanel**: `frontend/components/canvas/CharacterLibraryPanel.tsx` — slide-out picker for character library + wardrobe selection
+- **characterLibraryApi**: Added to `frontend/lib/api.ts` — full CRUD + wardrobe + face analysis API client
+- **NodeType updated**: `frontend/lib/types/node.ts` now includes `character | product | setting`
+- **VideoNodeRF**: 5 input handles (prompt, image, character, product, setting) + status indicators for all connected inputs
+- **ReactFlowCanvas**: `getConnectedData` extracts character/product/setting from connections; `handleGenerateVideo` passes all context to API
+- **Floating dock**: Character (IconUser), Product (IconPackage), Setting (IconMapPin) added to dock items
+- **Node types registry**: All 3 new types registered in `nodes/index.ts`
+
 ### Docker Commands
 ```bash
 # Always apply migrations via docker (not local alembic)

@@ -15,14 +15,9 @@ export default function VideoNodeRF({ data, selected }: CustomNodeProps) {
   // Connected data passed from parent
   const connectedPrompt = data.connectedPrompt || '';
   const connectedImageUrl = data.connectedImageUrl || '';
-  
-  // Debug log
-  console.log('[VideoNodeRF] Connected data:', { 
-    connectedPrompt: connectedPrompt?.substring(0, 30), 
-    connectedImageUrl: connectedImageUrl?.substring(0, 30),
-    hasPrompt: !!connectedPrompt?.trim(),
-    hasImage: !!connectedImageUrl
-  });
+  const connectedCharacter = data.connectedCharacter || null;
+  const connectedProduct = data.connectedProduct || null;
+  const connectedSetting = data.connectedSetting || null;
 
   // Settings
   const [duration, setDuration] = useState(node.duration || 8);
@@ -41,15 +36,6 @@ export default function VideoNodeRF({ data, selected }: CustomNodeProps) {
   // Check if video can be extended (has completed video with Veo URI)
   const hasVideo = !!node.video_url;
   const canBeExtended = !!(node.video_url && (node.veo_video_uri || node.veo_video_name));
-  
-  // Debug log for extension capability
-  console.log('[VideoNodeRF] Extension check:', {
-    video_url: node.video_url?.substring(0, 50),
-    veo_video_uri: node.veo_video_uri,
-    veo_video_name: node.veo_video_name,
-    hasVideo,
-    canBeExtended
-  });
 
   return (
     <div className={`rf-node rf-video-node ${selected ? 'selected' : ''}`}>
@@ -59,14 +45,35 @@ export default function VideoNodeRF({ data, selected }: CustomNodeProps) {
         position={Position.Left}
         id="prompt-input"
         className="rf-handle"
-        style={{ top: '30%' }}
+        style={{ top: '15%' }}
       />
       <Handle
         type="target"
         position={Position.Left}
         id="image-input"
         className="rf-handle"
-        style={{ top: '70%' }}
+        style={{ top: '35%' }}
+      />
+      <Handle
+        type="target"
+        position={Position.Left}
+        id="character-input"
+        className="rf-handle"
+        style={{ top: '55%' }}
+      />
+      <Handle
+        type="target"
+        position={Position.Left}
+        id="product-input"
+        className="rf-handle"
+        style={{ top: '75%' }}
+      />
+      <Handle
+        type="target"
+        position={Position.Left}
+        id="setting-input"
+        className="rf-handle"
+        style={{ top: '95%' }}
       />
 
       {/* Output Handle - always visible for workflow setup, styled based on video availability */}
@@ -95,18 +102,24 @@ export default function VideoNodeRF({ data, selected }: CustomNodeProps) {
         {/* Connected Inputs Status */}
         <div className="space-y-1 mb-3">
           <div className={`flex items-center gap-1.5 text-[10px] ${connectedPrompt?.trim() ? 'text-[#22c55e]' : 'text-[#3a3a3a]'}`}>
-            <span 
-              className="rf-status-dot" 
-              style={{ background: connectedPrompt?.trim() ? '#22c55e' : '#374151' }}
-            />
+            <span className="rf-status-dot" style={{ background: connectedPrompt?.trim() ? '#22c55e' : '#374151' }} />
             <span>Prompt{connectedPrompt?.trim() ? ' ✓' : ' (required)'}</span>
           </div>
           <div className={`flex items-center gap-1.5 text-[10px] ${connectedImageUrl ? 'text-[#22c55e]' : 'text-[#3a3a3a]'}`}>
-            <span 
-              className="rf-status-dot" 
-              style={{ background: connectedImageUrl ? '#22c55e' : '#374151' }}
-            />
+            <span className="rf-status-dot" style={{ background: connectedImageUrl ? '#22c55e' : '#374151' }} />
             <span>Image{connectedImageUrl ? ' ✓' : ' (optional)'}</span>
+          </div>
+          <div className={`flex items-center gap-1.5 text-[10px] ${connectedCharacter ? 'text-[#22c55e]' : 'text-[#3a3a3a]'}`}>
+            <span className="rf-status-dot" style={{ background: connectedCharacter ? '#22c55e' : '#374151' }} />
+            <span>Character{connectedCharacter ? ' ✓' : ''}</span>
+          </div>
+          <div className={`flex items-center gap-1.5 text-[10px] ${connectedProduct ? 'text-[#22c55e]' : 'text-[#3a3a3a]'}`}>
+            <span className="rf-status-dot" style={{ background: connectedProduct ? '#22c55e' : '#374151' }} />
+            <span>Product{connectedProduct ? ' ✓' : ''}</span>
+          </div>
+          <div className={`flex items-center gap-1.5 text-[10px] ${connectedSetting ? 'text-[#22c55e]' : 'text-[#3a3a3a]'}`}>
+            <span className="rf-status-dot" style={{ background: connectedSetting ? '#22c55e' : '#374151' }} />
+            <span>Setting{connectedSetting ? ' ✓' : ''}</span>
           </div>
         </div>
 

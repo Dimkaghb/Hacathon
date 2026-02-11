@@ -31,7 +31,7 @@ import { useSubscription } from '@/lib/contexts/SubscriptionContext';
 import { nodeTypes } from './nodes';
 import { edgeTypes } from './edges';
 import { FloatingDock, DockItem } from '@/components/ui/floating-dock';
-import { IconPhoto, IconMessageCircle, IconVideo, IconPlayerTrackNext, IconComponents } from '@tabler/icons-react';
+import { IconPhoto, IconMessageCircle, IconVideo, IconPlayerTrackNext, IconComponents, IconUser, IconPackage, IconMapPin } from '@tabler/icons-react';
 
 const SCREENSHOT_WIDTH = 640;
 const SCREENSHOT_HEIGHT = 360;
@@ -207,6 +207,9 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
       veo_video_name?: string;
       extension_count?: number;
     } | null = null;
+    let characterData: { character_id: string; wardrobe_preset_id?: string } | null = null;
+    let productData: Record<string, any> | null = null;
+    let settingData: Record<string, any> | null = null;
 
     for (const connection of nodeConnections) {
       const sourceNode = nodes.find(n => n.id === connection.source_node_id);
@@ -214,14 +217,14 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
         console.log('[getConnectedData] Source node not found:', connection.source_node_id);
         continue;
       }
-      
+
       console.log('[getConnectedData] Source node data:', sourceNode.type, sourceNode.data);
 
       // Extract prompt data from any node that has it
       if (sourceNode.data?.prompt && !prompt) {
         prompt = sourceNode.data.prompt;
       }
-      
+
       // Extract image data from any node that has it
       if (sourceNode.data?.image_url && !imageUrl) {
         imageUrl = sourceNode.data.image_url;
@@ -236,10 +239,41 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
           extension_count: sourceNode.data.extension_count || 0,
         };
       }
+
+      // Extract character data
+      if (sourceNode.type === 'character' && sourceNode.data?.character_id && !characterData) {
+        characterData = {
+          character_id: sourceNode.data.character_id,
+          wardrobe_preset_id: sourceNode.data.wardrobe_preset_id || undefined,
+        };
+      }
+
+      // Extract product data
+      if (sourceNode.type === 'product' && sourceNode.data?.product_name && !productData) {
+        productData = {
+          product_name: sourceNode.data.product_name,
+          brand: sourceNode.data.brand,
+          category: sourceNode.data.category,
+          benefits: sourceNode.data.benefits,
+          target_audience: sourceNode.data.target_audience,
+          tone: sourceNode.data.tone,
+        };
+      }
+
+      // Extract setting data
+      if (sourceNode.type === 'setting' && !settingData) {
+        settingData = {
+          location: sourceNode.data.location,
+          lighting: sourceNode.data.lighting,
+          camera_angle: sourceNode.data.camera_angle,
+          vibe: sourceNode.data.vibe,
+          custom_details: sourceNode.data.custom_details,
+        };
+      }
     }
 
-    console.log('[getConnectedData] Result:', { prompt: prompt?.substring(0, 50), imageUrl: imageUrl?.substring(0, 50), hasVideoData: !!videoData });
-    return { prompt, imageUrl, videoData };
+    console.log('[getConnectedData] Result:', { prompt: prompt?.substring(0, 50), imageUrl: imageUrl?.substring(0, 50), hasVideoData: !!videoData, hasCharacter: !!characterData, hasProduct: !!productData, hasSetting: !!settingData });
+    return { prompt, imageUrl, videoData, characterData, productData, settingData };
   };
 
   // Transform backend nodes to React Flow nodes (no useCallback to avoid circular deps)
@@ -267,6 +301,10 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
           connectedImageUrl: connectedData?.imageUrl,
           // Connected data for extension nodes
           connectedVideo: node.type === 'extension' ? connectedData?.videoData : undefined,
+          // Connected context nodes
+          connectedCharacter: connectedData?.characterData,
+          connectedProduct: connectedData?.productData,
+          connectedSetting: connectedData?.settingData,
         },
       };
     });
@@ -294,20 +332,14 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
     const nodesToUse = nodesOverride || backendNodesRef.current;
     const connectionsToUse = connectionsOverride || backendConnectionsRef.current;
 
-    console.log('[updateVideoNodeConnectedData] NodeId:', nodeId);
-    console.log('[updateVideoNodeConnectedData] Nodes count:', nodesToUse.length);
-    console.log('[updateVideoNodeConnectedData] Connections count:', connectionsToUse.length);
-
-    const { prompt, imageUrl, videoData } = getConnectedData(nodeId, nodesToUse, connectionsToUse);
-
-    console.log('[updateVideoNodeConnectedData] Result:', { prompt: prompt?.substring(0, 30), imageUrl: imageUrl?.substring(0, 30) });
+    const { prompt, imageUrl, videoData, characterData, productData, settingData } = getConnectedData(nodeId, nodesToUse, connectionsToUse);
 
     setNodes(nds =>
       nds.map(n => {
         if (n.id !== nodeId) return n;
 
         if (n.type === 'video') {
-          return { ...n, data: { ...n.data, connectedPrompt: prompt, connectedImageUrl: imageUrl } };
+          return { ...n, data: { ...n.data, connectedPrompt: prompt, connectedImageUrl: imageUrl, connectedCharacter: characterData, connectedProduct: productData, connectedSetting: settingData } };
         }
 
         if (n.type === 'extension') {
@@ -668,7 +700,7 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
   }, [projectId, updateVideoNodeConnectedData]);
 
   // Handle node creation
-  const handleAddNode = async (type: 'image' | 'prompt' | 'video' | 'container' | 'ratio' | 'scene' | 'extension') => {
+  const handleAddNode = async (type: 'image' | 'prompt' | 'video' | 'container' | 'ratio' | 'scene' | 'extension' | 'character' | 'product' | 'setting') => {
     try {
       // Place node at the center of the current viewport with a small random offset
       const randomOffset = () => Math.floor(Math.random() * 100) - 50;
@@ -774,9 +806,9 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
       return;
     }
 
-    const { prompt, imageUrl } = getConnectedData(nodeId, currentNodes, currentConnections);
-    console.log('Generate video:', { nodeId, prompt, imageUrl, connections: currentConnections.length });
-    
+    const { prompt, imageUrl, characterData, productData, settingData } = getConnectedData(nodeId, currentNodes, currentConnections);
+    console.log('Generate video:', { nodeId, prompt, imageUrl, characterData, productData, settingData, connections: currentConnections.length });
+
     if (!prompt) {
       alert('Please connect a prompt node first');
       return;
@@ -790,6 +822,10 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
         node_id: nodeId,
         prompt,
         image_url: imageUrl || undefined,
+        character_id: characterData?.character_id,
+        wardrobe_preset_id: characterData?.wardrobe_preset_id,
+        product_data: productData || undefined,
+        setting_data: settingData || undefined,
         resolution: videoNode.data?.resolution || '720p',
         duration: videoNode.data?.duration || 8,
         aspect_ratio: '16:9',
@@ -974,6 +1010,42 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
         handleAddNode('extension');
       },
       id: 'extension',
+    },
+    {
+      title: "Character",
+      icon: (
+        <IconUser className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+      ),
+      href: "#",
+      onClick: (e: React.MouseEvent) => {
+        e.preventDefault();
+        handleAddNode('character');
+      },
+      id: 'character',
+    },
+    {
+      title: "Product",
+      icon: (
+        <IconPackage className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+      ),
+      href: "#",
+      onClick: (e: React.MouseEvent) => {
+        e.preventDefault();
+        handleAddNode('product');
+      },
+      id: 'product',
+    },
+    {
+      title: "Setting",
+      icon: (
+        <IconMapPin className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+      ),
+      href: "#",
+      onClick: (e: React.MouseEvent) => {
+        e.preventDefault();
+        handleAddNode('setting');
+      },
+      id: 'setting',
     },
     {
       title: "Components",

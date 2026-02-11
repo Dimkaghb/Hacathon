@@ -529,6 +529,9 @@ export const aiApi = {
     prompt: string;
     image_url?: string;
     character_id?: string;
+    wardrobe_preset_id?: string;
+    product_data?: Record<string, any>;
+    setting_data?: Record<string, any>;
     resolution?: string;
     aspect_ratio?: string;
     duration?: number;
@@ -650,5 +653,120 @@ export const subscriptionApi = {
 
   getCreditsInfo: async () => {
     return apiFetch<{ credit_costs: Record<string, number> }>('/api/subscriptions/credits-info');
+  },
+};
+
+// Character Library API
+export interface CharacterLibraryItem {
+  id: string;
+  user_id: string;
+  project_id: string | null;
+  name: string | null;
+  source_image_url: string | null;
+  source_images: Array<{ url?: string; angle?: string; is_primary?: boolean }>;
+  prompt_dna: string | null;
+  voice_profile: Record<string, any>;
+  performance_style: Record<string, any>;
+  embedding_id: string | null;
+  analysis_data: Record<string, any>;
+  wardrobe_presets: WardrobePresetItem[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WardrobePresetItem {
+  id: string;
+  character_id: string;
+  name: string;
+  description: string | null;
+  reference_images: any[];
+  clothing_details: Record<string, any>;
+  prompt_snippet: string | null;
+  created_at: string;
+}
+
+export const characterLibraryApi = {
+  list: async () => {
+    return apiFetch<CharacterLibraryItem[]>('/api/characters');
+  },
+
+  get: async (characterId: string) => {
+    return apiFetch<CharacterLibraryItem>(`/api/characters/${characterId}`);
+  },
+
+  create: async (data: {
+    name: string;
+    source_images?: Array<{ url?: string; angle?: string; is_primary?: boolean }>;
+    voice_profile?: Record<string, any>;
+    performance_style?: Record<string, any>;
+  }) => {
+    return apiFetch<CharacterLibraryItem>('/api/characters', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  update: async (characterId: string, data: {
+    name?: string;
+    prompt_dna?: string;
+    source_images?: Array<{ url?: string; angle?: string; is_primary?: boolean }>;
+    voice_profile?: Record<string, any>;
+    performance_style?: Record<string, any>;
+    metadata?: Record<string, any>;
+  }) => {
+    return apiFetch<CharacterLibraryItem>(`/api/characters/${characterId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  delete: async (characterId: string) => {
+    return apiFetch<void>(`/api/characters/${characterId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  analyzeFace: async (characterId: string) => {
+    return apiFetch<{
+      job_id: string;
+      node_id: string;
+      type: string;
+      status: string;
+      progress: number;
+    }>(`/api/characters/${characterId}/analyze`, {
+      method: 'POST',
+    });
+  },
+
+  createWardrobe: async (characterId: string, data: {
+    name: string;
+    description?: string;
+    reference_images?: any[];
+    clothing_details?: Record<string, any>;
+    prompt_snippet?: string;
+  }) => {
+    return apiFetch<WardrobePresetItem>(`/api/characters/${characterId}/wardrobe`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  updateWardrobe: async (characterId: string, presetId: string, data: {
+    name?: string;
+    description?: string;
+    reference_images?: any[];
+    clothing_details?: Record<string, any>;
+    prompt_snippet?: string;
+  }) => {
+    return apiFetch<WardrobePresetItem>(`/api/characters/${characterId}/wardrobe/${presetId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteWardrobe: async (characterId: string, presetId: string) => {
+    return apiFetch<void>(`/api/characters/${characterId}/wardrobe/${presetId}`, {
+      method: 'DELETE',
+    });
   },
 };

@@ -204,7 +204,10 @@
 .rf-container-node,
 .rf-ratio-node,
 .rf-scene-node,
-.rf-extension-node {
+.rf-extension-node,
+.rf-character-node,
+.rf-product-node,
+.rf-setting-node {
   border-color: #2a2a2a;
 }
 
@@ -214,7 +217,10 @@
 .rf-container-node.selected,
 .rf-ratio-node.selected,
 .rf-scene-node.selected,
-.rf-extension-node.selected {
+.rf-extension-node.selected,
+.rf-character-node.selected,
+.rf-product-node.selected,
+.rf-setting-node.selected {
   border-color: #4a4a4a;
 }
 

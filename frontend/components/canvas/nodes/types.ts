@@ -12,6 +12,9 @@ export interface NodeData {
   connectedImageUrl?: string;
   connectedVideoUrl?: string;
   connectedVideo?: Record<string, any> | null;
+  connectedCharacter?: { character_id: string; wardrobe_preset_id?: string } | null;
+  connectedProduct?: Record<string, any> | null;
+  connectedSetting?: Record<string, any> | null;
 }
 
 export interface CustomNodeProps {
