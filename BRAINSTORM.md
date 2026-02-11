@@ -104,7 +104,7 @@ Scene Gallery Categories
 | **Closers** | CTA, Before/After Reveal, Testimonial Wrap, Offer/Discount | 3-5s |
 | **Full Formats** | Complete Testimonial (4 scenes), GRWM (5 scenes), Unboxing (4 scenes), Day in the Life (6 scenes) | 15-60s |
 
-**Single scenes** appear as one node. **Full formats** stamp a pre-connected chain of scene nodes onto the canvas.
+Single scenes** appear as one node. **Full formats** stamp a pre-connected chain of scene nodes onto the canvas.
 
 **Key UX:** The user sees a clean gallery with thumbnails and descriptions. They pick a scene, it appears on canvas. They edit the script text if they want. They don't touch prompts, settings, or technical details.
 
