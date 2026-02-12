@@ -10,6 +10,7 @@ export interface NodeData {
   onExtend?: () => void;
   onGenerateScene?: () => void;
   onOpenSceneGallery?: () => void;
+  onOpenHookLibrary?: () => void;
   connectedPrompt?: string;
   connectedImageUrl?: string;
   connectedVideoUrl?: string;

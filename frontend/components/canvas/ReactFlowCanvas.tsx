@@ -31,9 +31,10 @@ import { useSubscription } from '@/lib/contexts/SubscriptionContext';
 import { nodeTypes } from './nodes';
 import { edgeTypes } from './edges';
 import { FloatingDock, DockItem } from '@/components/ui/floating-dock';
-import { IconPhoto, IconMessageCircle, IconVideo, IconPlayerTrackNext, IconComponents, IconUser, IconPackage, IconMapPin, IconMovie } from '@tabler/icons-react';
+import { IconPhoto, IconMessageCircle, IconVideo, IconPlayerTrackNext, IconComponents, IconUser, IconPackage, IconMapPin, IconMovie, IconSparkles } from '@tabler/icons-react';
 import SceneGalleryPanel from './panels/SceneGalleryPanel';
 import TemplateBrowserPanel from './panels/TemplateBrowserPanel';
+import HookLibraryPanel from './panels/HookLibraryPanel';
 import { SceneDefinitionItem, TemplateItem, templatesApi } from '@/lib/api';
 
 const SCREENSHOT_WIDTH = 640;
@@ -192,8 +193,10 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
   const [isSaving, setIsSaving] = useState(false);
   const [showSceneGallery, setShowSceneGallery] = useState(false);
   const [showTemplateBrowser, setShowTemplateBrowser] = useState(false);
+  const [showHookLibrary, setShowHookLibrary] = useState(false);
   // Track which scene node is requesting gallery (for "Change scene type")
   const sceneGalleryTargetNodeRef = useRef<string | null>(null);
+  const hookLibraryTargetNodeRef = useRef<string | null>(null);
 
   // Ref for shareToken to use in callbacks
   const shareTokenRef = useRef(shareToken);
@@ -307,6 +310,10 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
           onOpenSceneGallery: node.type === 'scene' ? () => {
             sceneGalleryTargetNodeRef.current = node.id;
             setShowSceneGallery(true);
+          } : undefined,
+          onOpenHookLibrary: node.type === 'scene' ? () => {
+            hookLibraryTargetNodeRef.current = node.id;
+            setShowHookLibrary(true);
           } : undefined,
           // Connected data for video nodes
           connectedPrompt: connectedData?.prompt,
@@ -1193,6 +1200,19 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
       id: 'scene',
     },
     {
+      title: "Hooks",
+      icon: (
+        <IconSparkles className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+      ),
+      href: "#",
+      onClick: (e: React.MouseEvent) => {
+        e.preventDefault();
+        hookLibraryTargetNodeRef.current = null;
+        setShowHookLibrary(true);
+      },
+      id: 'hooks',
+    },
+    {
       title: "Templates",
       icon: (
         <IconComponents className="h-full w-full text-neutral-500 dark:text-neutral-300" />
@@ -1285,6 +1305,53 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
         open={showTemplateBrowser}
         onClose={() => setShowTemplateBrowser(false)}
         onSelect={handleInstantiateTemplate}
+      />
+
+      {/* Hook Library Panel */}
+      <HookLibraryPanel
+        open={showHookLibrary}
+        onClose={() => {
+          setShowHookLibrary(false);
+          hookLibraryTargetNodeRef.current = null;
+        }}
+        onSelect={async (hookText: string) => {
+          setShowHookLibrary(false);
+          const targetNodeId = hookLibraryTargetNodeRef.current;
+          hookLibraryTargetNodeRef.current = null;
+          if (targetNodeId) {
+            // Opened from a scene node — fill its script
+            handleNodeUpdate(targetNodeId, { script_text: hookText });
+          } else {
+            // Opened from dock — create a new scene node with the hook as script
+            try {
+              const randomOffset = () => Math.floor(Math.random() * 100) - 50;
+              let posX = 300;
+              let posY = 300;
+              if (reactFlowInstance.current) {
+                const centerX = window.innerWidth / 2;
+                const centerY = window.innerHeight / 2;
+                const flowCenter = reactFlowInstance.current.screenToFlowPosition({ x: centerX, y: centerY });
+                posX = flowCenter.x + randomOffset();
+                posY = flowCenter.y + randomOffset();
+              }
+              const newNode = await nodesApi.create(projectId, {
+                type: 'scene',
+                position_x: posX,
+                position_y: posY,
+                data: {
+                  scene_category: 'hook',
+                  scene_name: 'Hook Scene',
+                  scene_duration: 3,
+                  script_text: hookText,
+                },
+              }, shareToken);
+              setBackendNodes(prev => [...prev, newNode as Node]);
+              setNodes(nds => [...nds, ...transformBackendNodesToRF([newNode as Node], backendConnections)]);
+            } catch (error) {
+              console.error('Failed to create scene node from hook:', error);
+            }
+          }
+        }}
       />
     </div>
   );

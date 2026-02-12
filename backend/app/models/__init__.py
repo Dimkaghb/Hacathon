@@ -10,6 +10,7 @@ from app.models.credit_transaction import CreditTransaction
 from app.models.polar_event import PolarWebhookEvent
 from app.models.scene_definition import SceneDefinition
 from app.models.template import Template
+from app.models.hook import Hook
 
 __all__ = [
     "User",
@@ -24,4 +25,5 @@ __all__ = [
     "PolarWebhookEvent",
     "SceneDefinition",
     "Template",
+    "Hook",
 ]

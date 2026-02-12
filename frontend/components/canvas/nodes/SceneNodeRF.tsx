@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import { CustomNodeProps } from './types';
-import { IconClock, IconMovie, IconPlayerPlay, IconRefresh } from '@tabler/icons-react';
+import { IconClock, IconMovie, IconPlayerPlay, IconRefresh, IconSparkles } from '@tabler/icons-react';
 
 const CATEGORY_COLORS: Record<string, string> = {
   hook: 'bg-amber-500/20 text-amber-400',
@@ -119,7 +119,20 @@ export default function SceneNodeRF({ data, selected }: CustomNodeProps) {
             </div>
 
             {/* Script Editor */}
-            <label className="rf-label">Script</label>
+            <div className="flex items-center justify-between mb-0.5">
+              <label className="rf-label" style={{ marginBottom: 0 }}>Script</label>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  data.onOpenHookLibrary?.();
+                }}
+                className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] text-purple-400 hover:bg-purple-500/10 transition-colors"
+                title="Browse hook templates"
+              >
+                <IconSparkles size={10} />
+                Hooks
+              </button>
+            </div>
             <textarea
               value={scriptText}
               onChange={(e) => handleScriptChange(e.target.value)}

@@ -842,6 +842,64 @@ export interface TemplateItem {
   updated_at: string;
 }
 
+// Hooks API
+export interface HookItem {
+  id: string;
+  category: string;
+  template_text: string;
+  example_filled: string | null;
+  variables: any[];
+  performance_score: number;
+  usage_count: number;
+  is_system: boolean;
+  creator_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export const hooksApi = {
+  list: async (category?: string) => {
+    const params = category ? `?category=${encodeURIComponent(category)}` : '';
+    return apiFetch<HookItem[]>(`/api/hooks${params}`);
+  },
+
+  getById: async (id: string) => {
+    return apiFetch<HookItem>(`/api/hooks/${id}`);
+  },
+
+  create: async (data: {
+    category: string;
+    template_text: string;
+    example_filled?: string;
+    variables?: any[];
+  }) => {
+    return apiFetch<HookItem>('/api/hooks', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  use: async (id: string) => {
+    return apiFetch<HookItem>(`/api/hooks/${id}/use`, {
+      method: 'POST',
+    });
+  },
+
+  generateVariants: async (data: {
+    product_name: string;
+    pain_point: string;
+    count?: number;
+  }) => {
+    return apiFetch<{ hooks: Array<{ category: string; template_text: string; example_filled: string }> }>(
+      '/api/hooks/generate-variants',
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    );
+  },
+};
+
 export const templatesApi = {
   list: async (category?: string) => {
     const params = category ? `?category=${encodeURIComponent(category)}` : '';
