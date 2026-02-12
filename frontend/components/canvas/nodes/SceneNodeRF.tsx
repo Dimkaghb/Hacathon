@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import { CustomNodeProps } from './types';
-import { IconClock, IconMovie, IconPlayerPlay, IconRefresh, IconSparkles } from '@tabler/icons-react';
+import { IconClock, IconGitBranch, IconMovie, IconPlayerPlay, IconRefresh, IconSparkles } from '@tabler/icons-react';
 
 const CATEGORY_COLORS: Record<string, string> = {
   hook: 'bg-amber-500/20 text-amber-400',
@@ -34,9 +34,13 @@ export default function SceneNodeRF({ data, selected }: CustomNodeProps) {
   };
 
   const hasVideo = !!node.video_url;
+  const isBranched = !!node.branch_group_id;
 
   return (
-    <div className={`rf-node rf-scene-node ${selected ? 'selected' : ''}`}>
+    <div
+      className={`rf-node rf-scene-node ${selected ? 'selected' : ''}`}
+      style={isBranched ? { borderLeft: '2px solid #8b5cf6' } : undefined}
+    >
       {/* Input Handles - Left */}
       <Handle
         type="target"
@@ -98,6 +102,13 @@ export default function SceneNodeRF({ data, selected }: CustomNodeProps) {
             {sceneCategory}
           </span>
         )}
+        <button
+          onClick={(e) => { e.stopPropagation(); data.onBranch?.(); }}
+          className="ml-auto p-0.5 rounded hover:bg-purple-500/20 text-[#555] hover:text-purple-400 transition-colors"
+          title="Create variation branch"
+        >
+          <IconGitBranch size={12} />
+        </button>
         <button onClick={() => data.onDelete?.()} className="rf-node-delete">&times;</button>
       </div>
 

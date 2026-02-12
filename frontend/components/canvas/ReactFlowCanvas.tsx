@@ -31,7 +31,7 @@ import { useSubscription } from '@/lib/contexts/SubscriptionContext';
 import { nodeTypes } from './nodes';
 import { edgeTypes } from './edges';
 import { FloatingDock, DockItem } from '@/components/ui/floating-dock';
-import { IconPhoto, IconMessageCircle, IconVideo, IconPlayerTrackNext, IconComponents, IconUser, IconPackage, IconMapPin, IconMovie, IconSparkles } from '@tabler/icons-react';
+import { IconPhoto, IconMessageCircle, IconVideo, IconPlayerTrackNext, IconComponents, IconUser, IconPackage, IconMapPin, IconMovie, IconSparkles, IconGitBranch } from '@tabler/icons-react';
 import SceneGalleryPanel from './panels/SceneGalleryPanel';
 import TemplateBrowserPanel from './panels/TemplateBrowserPanel';
 import HookLibraryPanel from './panels/HookLibraryPanel';
@@ -315,6 +315,8 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
             hookLibraryTargetNodeRef.current = node.id;
             setShowHookLibrary(true);
           } : undefined,
+          onBranch: (node.type === 'scene' || node.type === 'video' || node.type === 'extension')
+            ? () => handleBranch(node.id) : undefined,
           // Connected data for video nodes
           connectedPrompt: connectedData?.prompt,
           connectedImageUrl: connectedData?.imageUrl,
@@ -810,6 +812,74 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
       setEdges(eds => eds.filter(e => e.source !== nodeId && e.target !== nodeId));
     } catch (error) {
       console.error('Failed to delete node:', error);
+    }
+  };
+
+  // Handle branch - clone downstream subgraph
+  const handleBranch = async (nodeId: string) => {
+    try {
+      const result = await nodesApi.branch(projectId, nodeId, { offset_y: 250 }, shareToken);
+      console.log('[Branch] Created', result.cloned_nodes.length, 'nodes,', result.cloned_connections.length, 'connections, group:', result.branch_group_id);
+
+      // Add cloned nodes to backend state
+      const newNodes = result.cloned_nodes as unknown as Node[];
+      setBackendNodes(prev => {
+        // Also update original nodes with branch_group_id
+        const updated = prev.map(n => {
+          const originalData = result.cloned_nodes.find(cn => cn.data?.branch_source_node_id === n.id);
+          if (originalData && !n.data?.branch_group_id) {
+            return { ...n, data: { ...n.data, branch_group_id: result.branch_group_id } };
+          }
+          return n;
+        });
+        return [...updated, ...newNodes];
+      });
+
+      // Add cloned connections to backend state
+      const newConnections = result.cloned_connections as unknown as BackendConnection[];
+      setBackendConnections(prev => [...prev, ...newConnections]);
+
+      // Transform and add to React Flow
+      setNodes(nds => {
+        // Update original nodes to show branch group
+        const updated = nds.map(n => {
+          const nodeData = (n.data as any)?.data as Record<string, any> | undefined;
+          if (nodeData && !nodeData.branch_group_id) {
+            const isOriginal = result.cloned_nodes.some(cn => cn.data?.branch_source_node_id === n.id);
+            if (isOriginal) {
+              return {
+                ...n,
+                data: {
+                  ...n.data,
+                  data: { ...nodeData, branch_group_id: result.branch_group_id },
+                },
+              };
+            }
+          }
+          return n;
+        });
+
+        // Add new cloned nodes
+        const allBackendNodes = [...backendNodesRef.current, ...newNodes];
+        const allConnections = [...backendConnectionsRef.current, ...newConnections];
+        const rfNewNodes = transformBackendNodesToRF(newNodes, allConnections);
+        return [...updated, ...rfNewNodes];
+      });
+
+      // Add edges - branch connections use 'branch' edge type
+      const newEdges: Edge[] = newConnections.map(conn => ({
+        id: conn.id,
+        source: conn.source_node_id,
+        target: conn.target_node_id,
+        sourceHandle: conn.source_handle || null,
+        targetHandle: conn.target_handle || null,
+        type: 'branch',
+        data: { backendId: conn.id, branchGroupId: result.branch_group_id },
+      }));
+      setEdges(eds => [...eds, ...newEdges]);
+
+    } catch (error) {
+      console.error('Failed to branch node:', error);
     }
   };
 

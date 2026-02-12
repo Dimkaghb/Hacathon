@@ -59,3 +59,27 @@ class NodeResponse(BaseModel):
 
 class NodeBatchUpdate(BaseModel):
     nodes: List[NodeUpdate]
+
+
+class BranchConfig(BaseModel):
+    offset_y: float = 250
+    modifications: Optional[Dict[str, Dict[str, Any]]] = None
+    # e.g., {"ref_id_of_branch_point": {"script_text": "Different hook..."}}
+
+
+class ConnectionResponse(BaseModel):
+    id: UUID
+    project_id: UUID
+    source_node_id: UUID
+    target_node_id: UUID
+    source_handle: Optional[str] = None
+    target_handle: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class BranchResponse(BaseModel):
+    cloned_nodes: List[NodeResponse]
+    cloned_connections: List[ConnectionResponse]
+    branch_group_id: str

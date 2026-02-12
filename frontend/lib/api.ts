@@ -415,6 +415,39 @@ export const nodesApi = {
       method: 'DELETE',
     });
   },
+
+  branch: async (projectId: string, nodeId: string, config?: {
+    offset_y?: number;
+    modifications?: Record<string, Record<string, any>>;
+  }, shareToken?: string | null) => {
+    return apiFetch<{
+      cloned_nodes: Array<{
+        id: string;
+        project_id: string;
+        type: string;
+        position_x: number;
+        position_y: number;
+        data: Record<string, any>;
+        status: string;
+        character_id?: string;
+        error_message?: string;
+        created_at: string;
+        updated_at: string;
+      }>;
+      cloned_connections: Array<{
+        id: string;
+        project_id: string;
+        source_node_id: string;
+        target_node_id: string;
+        source_handle?: string;
+        target_handle?: string;
+      }>;
+      branch_group_id: string;
+    }>(buildUrl(`/api/projects/${projectId}/nodes/${nodeId}/branch`, shareToken), {
+      method: 'POST',
+      body: JSON.stringify(config || {}),
+    });
+  },
 };
 
 // Connections API

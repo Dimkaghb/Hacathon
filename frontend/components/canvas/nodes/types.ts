@@ -11,6 +11,7 @@ export interface NodeData {
   onGenerateScene?: () => void;
   onOpenSceneGallery?: () => void;
   onOpenHookLibrary?: () => void;
+  onBranch?: () => void;
   connectedPrompt?: string;
   connectedImageUrl?: string;
   connectedVideoUrl?: string;
