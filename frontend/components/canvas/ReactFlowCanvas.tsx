@@ -35,6 +35,7 @@ import { IconPhoto, IconMessageCircle, IconVideo, IconPlayerTrackNext, IconCompo
 import SceneGalleryPanel from './panels/SceneGalleryPanel';
 import TemplateBrowserPanel from './panels/TemplateBrowserPanel';
 import HookLibraryPanel from './panels/HookLibraryPanel';
+import ABComparisonPanel from './panels/ABComparisonPanel';
 import { SceneDefinitionItem, TemplateItem, templatesApi } from '@/lib/api';
 
 const SCREENSHOT_WIDTH = 640;
@@ -194,6 +195,7 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
   const [showSceneGallery, setShowSceneGallery] = useState(false);
   const [showTemplateBrowser, setShowTemplateBrowser] = useState(false);
   const [showHookLibrary, setShowHookLibrary] = useState(false);
+  const [showABPanel, setShowABPanel] = useState(false);
   // Track which scene node is requesting gallery (for "Change scene type")
   const sceneGalleryTargetNodeRef = useRef<string | null>(null);
   const hookLibraryTargetNodeRef = useRef<string | null>(null);
@@ -1294,6 +1296,18 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
       },
       id: 'templates',
     },
+    {
+      title: "A/B Compare",
+      icon: (
+        <IconGitBranch className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+      ),
+      href: "#",
+      onClick: (e: React.MouseEvent) => {
+        e.preventDefault();
+        setShowABPanel(true);
+      },
+      id: 'ab-compare',
+    },
   ];
 
   return (
@@ -1375,6 +1389,14 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
         open={showTemplateBrowser}
         onClose={() => setShowTemplateBrowser(false)}
         onSelect={handleInstantiateTemplate}
+      />
+
+      {/* A/B Comparison Panel */}
+      <ABComparisonPanel
+        open={showABPanel}
+        onClose={() => setShowABPanel(false)}
+        nodes={backendNodes}
+        onUpdateNode={handleNodeUpdate}
       />
 
       {/* Hook Library Panel */}
