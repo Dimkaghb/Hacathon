@@ -14,7 +14,10 @@ import {
   IconVideo,
   IconLogout,
   IconSettings,
+  IconFileText,
+  IconLayoutBoard,
 } from "@tabler/icons-react";
+import ScriptEditor from "@/components/canvas/ScriptEditor";
 import { CirclePlus } from "@/components/animate-ui/icons/circle-plus";
 import { ChevronLeft } from "@/components/animate-ui/icons/chevron-left";
 import { FoldersIcon } from "@/components/animate-ui/icons/folders";
@@ -33,6 +36,7 @@ function MainPageContent() {
   const [recentProjects, setRecentProjects] = useState<Array<{ id: string; name: string }>>([]);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const userDropdownRef = useRef<HTMLDivElement>(null);
+  const [editorMode, setEditorMode] = useState<'canvas' | 'script'>('canvas');
 
   // Check for share token first (allows guest access)
   useEffect(() => {
@@ -325,10 +329,28 @@ function MainPageContent() {
         </SidebarBody>
       </Sidebar>
 
-      {/* Main content area - Full canvas */}
+      {/* Main content area */}
       <div className="flex-1 relative overflow-hidden">
+        {/* Mode toggle — only in canvas mode; script mode has its own "Open in Canvas" in its top bar */}
+        {!isSharedAccess && editorMode === 'canvas' && (
+          <button
+            onClick={() => setEditorMode('script')}
+            className="absolute top-5 right-28 z-40 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs border border-[#2a2a2a] bg-[#1a1a1a]/80 backdrop-blur-sm text-[#a0a0a0] hover:border-[#3a3a3a] hover:text-white transition-colors"
+          >
+            <IconFileText className="w-3.5 h-3.5" />
+            Script Mode
+          </button>
+        )}
         <SubscriptionGate>
-          <ReactFlowCanvas projectId={projectId} shareToken={shareToken} />
+          {editorMode === 'canvas' ? (
+            <ReactFlowCanvas projectId={projectId} shareToken={shareToken} />
+          ) : (
+            <ScriptEditor
+              projectId={projectId}
+              onSwitchToCanvas={() => setEditorMode('canvas')}
+              onGraphCreated={() => setEditorMode('canvas')}
+            />
+          )}
         </SubscriptionGate>
       </div>
 

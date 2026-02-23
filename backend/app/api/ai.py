@@ -7,7 +7,8 @@ Provides endpoints for:
 - Video generation (text-to-video, image-to-video)
 - Video extension
 """
-from typing import Any, Callable, Dict
+import uuid as uuid_mod
+from typing import Any, Callable, Dict, List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -34,6 +35,8 @@ from app.schemas.ai import (
 )
 from app.api.deps import get_current_user, verify_project_access, require_active_subscription
 from app.models.subscription import Subscription
+from app.models.connection import Connection
+from app.schemas.script import ScriptToGraphRequest, ScriptToGraphResponse
 from app.services.prompt_service import prompt_service
 from app.services.subscription_service import subscription_service, CREDIT_COSTS
 from app.core.exceptions import InsufficientCreditsError
@@ -592,3 +595,228 @@ async def list_characters(
         select(Character).where(Character.user_id == current_user.id)
     )
     return result.scalars().all()
+
+
+@router.post("/script-to-graph", response_model=ScriptToGraphResponse)
+async def script_to_graph(
+    request: ScriptToGraphRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Convert a linear script (list of scene blocks) into a React Flow node graph.
+
+    Creates SCENE + VIDEO node pairs for each scene block, wires them together,
+    and optionally attaches CHARACTER / PRODUCT / SETTING context nodes.
+    No credits charged — this only creates nodes, no AI generation.
+    """
+    # Verify project access
+    project = await verify_project_access(request.project_id, None, current_user, db)
+
+    # Layout constants
+    SCENE_SPACING_Y = 280
+    CONTEXT_X = -400
+    SCENE_X = 0
+    VIDEO_X = 350
+
+    created_nodes: List[Node] = []
+    created_connections: List[Connection] = []
+    scene_node_ids: List[uuid_mod.UUID] = []
+    video_node_ids: List[uuid_mod.UUID] = []
+
+    # --- Optional context nodes (left column) ---
+    character_node_id = None
+    if request.character_id:
+        character_node_id = uuid_mod.uuid4()
+        node = Node(
+            id=character_node_id,
+            project_id=request.project_id,
+            type=NodeType.CHARACTER,
+            position_x=request.offset_x + CONTEXT_X,
+            position_y=request.offset_y + 0,
+            data={"character_id": str(request.character_id)},
+            status=NodeStatus.IDLE,
+        )
+        db.add(node)
+        created_nodes.append(node)
+
+    product_node_id = None
+    if request.product_data:
+        product_node_id = uuid_mod.uuid4()
+        node = Node(
+            id=product_node_id,
+            project_id=request.project_id,
+            type=NodeType.PRODUCT,
+            position_x=request.offset_x + CONTEXT_X,
+            position_y=request.offset_y + SCENE_SPACING_Y,
+            data=request.product_data,
+            status=NodeStatus.IDLE,
+        )
+        db.add(node)
+        created_nodes.append(node)
+
+    setting_node_id = None
+    if request.setting_data:
+        setting_node_id = uuid_mod.uuid4()
+        node = Node(
+            id=setting_node_id,
+            project_id=request.project_id,
+            type=NodeType.SETTING,
+            position_x=request.offset_x + CONTEXT_X,
+            position_y=request.offset_y + SCENE_SPACING_Y * 2,
+            data=request.setting_data,
+            status=NodeStatus.IDLE,
+        )
+        db.add(node)
+        created_nodes.append(node)
+
+    # --- Scene + Video node pairs ---
+    for idx, scene in enumerate(request.scenes):
+        y_offset = request.offset_y + idx * SCENE_SPACING_Y
+
+        # Scene node
+        scene_id = uuid_mod.uuid4()
+        scene_data = {
+            "prompt": scene.script_text,
+            "script_text": scene.script_text,
+            "category": scene.category,
+            "duration": scene.duration,
+        }
+        if scene.scene_name:
+            scene_data["scene_name"] = scene.scene_name
+            scene_data["label"] = scene.scene_name
+        if scene.tone:
+            scene_data["tone"] = scene.tone
+        if scene.scene_definition_id:
+            scene_data["scene_definition_id"] = str(scene.scene_definition_id)
+        if scene.prompt_template:
+            scene_data["prompt_template"] = scene.prompt_template
+
+        scene_node = Node(
+            id=scene_id,
+            project_id=request.project_id,
+            type=NodeType.SCENE,
+            position_x=request.offset_x + SCENE_X,
+            position_y=y_offset,
+            data=scene_data,
+            status=NodeStatus.IDLE,
+        )
+        db.add(scene_node)
+        created_nodes.append(scene_node)
+        scene_node_ids.append(scene_id)
+
+        # Video node
+        video_id = uuid_mod.uuid4()
+        video_node = Node(
+            id=video_id,
+            project_id=request.project_id,
+            type=NodeType.VIDEO,
+            position_x=request.offset_x + VIDEO_X,
+            position_y=y_offset,
+            data={},
+            status=NodeStatus.IDLE,
+        )
+        db.add(video_node)
+        created_nodes.append(video_node)
+        video_node_ids.append(video_id)
+
+        # Connection: scene -> video (scene-output -> prompt-input)
+        conn = Connection(
+            id=uuid_mod.uuid4(),
+            project_id=request.project_id,
+            source_node_id=scene_id,
+            target_node_id=video_id,
+            source_handle="scene-output",
+            target_handle="prompt-input",
+        )
+        db.add(conn)
+        created_connections.append(conn)
+
+    # --- Chain scenes: scene N -> scene N+1 ---
+    for i in range(len(scene_node_ids) - 1):
+        conn = Connection(
+            id=uuid_mod.uuid4(),
+            project_id=request.project_id,
+            source_node_id=scene_node_ids[i],
+            target_node_id=scene_node_ids[i + 1],
+            source_handle="scene-chain-output",
+            target_handle="scene-chain-input",
+        )
+        db.add(conn)
+        created_connections.append(conn)
+
+    # --- Connect context nodes -> each video node ---
+    for vid_id in video_node_ids:
+        if character_node_id:
+            conn = Connection(
+                id=uuid_mod.uuid4(),
+                project_id=request.project_id,
+                source_node_id=character_node_id,
+                target_node_id=vid_id,
+                source_handle="character-output",
+                target_handle="character-input",
+            )
+            db.add(conn)
+            created_connections.append(conn)
+
+        if product_node_id:
+            conn = Connection(
+                id=uuid_mod.uuid4(),
+                project_id=request.project_id,
+                source_node_id=product_node_id,
+                target_node_id=vid_id,
+                source_handle="product-output",
+                target_handle="product-input",
+            )
+            db.add(conn)
+            created_connections.append(conn)
+
+        if setting_node_id:
+            conn = Connection(
+                id=uuid_mod.uuid4(),
+                project_id=request.project_id,
+                source_node_id=setting_node_id,
+                target_node_id=vid_id,
+                source_handle="setting-output",
+                target_handle="setting-input",
+            )
+            db.add(conn)
+            created_connections.append(conn)
+
+    await db.commit()
+
+    # Refresh all objects
+    for node in created_nodes:
+        await db.refresh(node)
+    for conn in created_connections:
+        await db.refresh(conn)
+
+    return ScriptToGraphResponse(
+        nodes=[
+            {
+                "id": str(n.id),
+                "project_id": str(n.project_id),
+                "type": n.type.value if hasattr(n.type, "value") else str(n.type),
+                "position_x": n.position_x,
+                "position_y": n.position_y,
+                "data": n.data or {},
+                "status": n.status.value if hasattr(n.status, "value") else str(n.status),
+                "error_message": n.error_message,
+                "created_at": n.created_at.isoformat() if n.created_at else None,
+                "updated_at": n.updated_at.isoformat() if n.updated_at else None,
+            }
+            for n in created_nodes
+        ],
+        connections=[
+            {
+                "id": str(c.id),
+                "project_id": str(c.project_id),
+                "source_node_id": str(c.source_node_id),
+                "target_node_id": str(c.target_node_id),
+                "source_handle": c.source_handle,
+                "target_handle": c.target_handle,
+                "created_at": c.created_at.isoformat() if c.created_at else None,
+            }
+            for c in created_connections
+        ],
+    )
