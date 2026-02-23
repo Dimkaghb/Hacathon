@@ -284,6 +284,44 @@ class SubscriptionService:
         await db.flush()
         return transaction
 
+    async def reward_credits(
+        self,
+        db: AsyncSession,
+        user_id: UUID,
+        amount: int,
+        description: str,
+    ) -> Optional[CreditTransaction]:
+        """Award bonus credits (e.g. template remix reward). Non-blocking if no subscription."""
+        result = await db.execute(
+            select(Subscription).where(
+                Subscription.user_id == user_id,
+                Subscription.status.in_([
+                    SubscriptionStatus.ACTIVE,
+                    SubscriptionStatus.TRIALING,
+                    SubscriptionStatus.CANCELED,
+                ]),
+            )
+        )
+        subscription = result.scalar_one_or_none()
+        if not subscription:
+            logger.info(f"Skipping reward for user {user_id}: no active subscription")
+            return None
+
+        subscription.credits_balance += amount
+
+        transaction = CreditTransaction(
+            subscription_id=subscription.id,
+            user_id=user_id,
+            type=TransactionType.ADJUSTMENT,
+            amount=amount,
+            balance_after=subscription.credits_balance,
+            operation_type="template_remix_reward",
+            description=description,
+        )
+        db.add(transaction)
+        await db.flush()
+        return transaction
+
     async def refund_credits(
         self,
         db: AsyncSession,

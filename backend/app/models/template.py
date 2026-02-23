@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, ForeignKey, JSON, Text, Integer, Boolean
+from sqlalchemy import Column, String, DateTime, ForeignKey, JSON, Text, Integer, Boolean, Float
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.core.database import Base
@@ -21,5 +21,13 @@ class Template(Base):
     best_for = Column(JSON, default=list)
     graph_definition = Column(JSON, nullable=False, default=dict)
     usage_count = Column(Integer, default=0)
+
+    # Community / publish fields
+    is_published = Column(Boolean, default=False)
+    published_at = Column(DateTime, nullable=True)
+    remix_count = Column(Integer, default=0)
+    rating = Column(Float, default=0.0)
+    rating_count = Column(Integer, default=0)
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

@@ -11,6 +11,7 @@ from app.models.polar_event import PolarWebhookEvent
 from app.models.scene_definition import SceneDefinition
 from app.models.template import Template
 from app.models.hook import Hook
+from app.models.campaign import Campaign
 
 __all__ = [
     "User",
@@ -26,4 +27,5 @@ __all__ = [
     "SceneDefinition",
     "Template",
     "Hook",
+    "Campaign",
 ]
