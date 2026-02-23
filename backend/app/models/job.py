@@ -13,6 +13,7 @@ class JobType(str, enum.Enum):
     PROMPT_ENHANCEMENT = "prompt_enhancement"
     VIDEO_GENERATION = "video_generation"
     VIDEO_EXTENSION = "video_extension"
+    VIDEO_STITCH = "video_stitch"
 
 
 class JobStatus(str, enum.Enum):

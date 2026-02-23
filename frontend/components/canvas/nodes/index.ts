@@ -8,6 +8,7 @@ import ExtensionNodeRF from './ExtensionNodeRF';
 import CharacterNodeRF from './CharacterNodeRF';
 import ProductNodeRF from './ProductNodeRF';
 import SettingNodeRF from './SettingNodeRF';
+import StitchNodeRF from './StitchNodeRF';
 
 export const nodeTypes = {
   image: ImageNodeRF,
@@ -20,4 +21,5 @@ export const nodeTypes = {
   character: CharacterNodeRF,
   product: ProductNodeRF,
   setting: SettingNodeRF,
+  stitch: StitchNodeRF,
 };

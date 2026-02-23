@@ -31,7 +31,7 @@ import { useSubscription } from '@/lib/contexts/SubscriptionContext';
 import { nodeTypes } from './nodes';
 import { edgeTypes } from './edges';
 import { FloatingDock, DockItem } from '@/components/ui/floating-dock';
-import { IconPhoto, IconMessageCircle, IconVideo, IconPlayerTrackNext, IconComponents, IconUser, IconPackage, IconMapPin, IconMovie, IconSparkles, IconGitBranch } from '@tabler/icons-react';
+import { IconPhoto, IconMessageCircle, IconVideo, IconPlayerTrackNext, IconComponents, IconUser, IconPackage, IconMapPin, IconMovie, IconSparkles, IconGitBranch, IconLink } from '@tabler/icons-react';
 import SceneGalleryPanel from './panels/SceneGalleryPanel';
 import TemplateBrowserPanel from './panels/TemplateBrowserPanel';
 import HookLibraryPanel from './panels/HookLibraryPanel';
@@ -204,6 +204,27 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
   const shareTokenRef = useRef(shareToken);
   shareTokenRef.current = shareToken;
 
+  // Get ordered list of connected videos for a stitch node
+  const getConnectedVideosForStitch = (nodeId: string, nodes: Node[], connections: BackendConnection[]) => {
+    return connections
+      .filter(c => c.target_node_id === nodeId)
+      .sort((a, b) => {
+        const getIdx = (h: string | null | undefined) => {
+          const m = h?.match(/video-input-(\d+)/);
+          return m ? parseInt(m[1]) : 0;
+        };
+        return getIdx(a.target_handle) - getIdx(b.target_handle);
+      })
+      .map(conn => {
+        const sourceNode = nodes.find(n => n.id === conn.source_node_id);
+        return {
+          source_node_id: conn.source_node_id,
+          handle: conn.target_handle || '',
+          video_url: sourceNode?.data?.video_url || '',
+        };
+      });
+  };
+
   // Helper function to get connected data (no useCallback to avoid circular deps)
   // Flexible: extracts data from any connected node based on what data is available
   const getConnectedData = (nodeId: string, nodes: Node[], connections: BackendConnection[]) => {
@@ -291,10 +312,13 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
   // Transform backend nodes to React Flow nodes (no useCallback to avoid circular deps)
   const transformBackendNodesToRF = (nodes: Node[], connections: BackendConnection[]): RFNode[] => {
     return nodes.map(node => {
-      const connectedData = (node.type === 'video' || node.type === 'extension') 
-        ? getConnectedData(node.id, nodes, connections) 
+      const connectedData = (node.type === 'video' || node.type === 'extension')
+        ? getConnectedData(node.id, nodes, connections)
         : null;
-      
+      const connectedVideos = node.type === 'stitch'
+        ? getConnectedVideosForStitch(node.id, nodes, connections)
+        : null;
+
       return {
         id: node.id,
         type: node.type,
@@ -308,6 +332,7 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
           onDelete: () => handleNodeDelete(node.id),
           onGenerate: node.type === 'video' ? () => handleGenerateVideo(node.id) : undefined,
           onExtend: node.type === 'extension' ? () => handleExtendVideo(node.id) : undefined,
+          onStitch: node.type === 'stitch' ? () => handleStitchVideo(node.id) : undefined,
           onGenerateScene: node.type === 'scene' ? () => handleGenerateVideo(node.id) : undefined,
           onOpenSceneGallery: node.type === 'scene' ? () => {
             sceneGalleryTargetNodeRef.current = node.id;
@@ -328,6 +353,8 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
           connectedCharacter: connectedData?.characterData,
           connectedProduct: connectedData?.productData,
           connectedSetting: connectedData?.settingData,
+          // Connected videos for stitch nodes
+          connectedVideos: node.type === 'stitch' ? connectedVideos : undefined,
         },
       };
     });
@@ -346,7 +373,7 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
     }));
   };
 
-  // Update video/extension node connected data - accepts optional overrides, falls back to refs
+  // Update video/extension/stitch node connected data - accepts optional overrides, falls back to refs
   const updateVideoNodeConnectedData = useCallback((
     nodeId: string,
     nodesOverride?: Node[],
@@ -356,6 +383,7 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
     const connectionsToUse = connectionsOverride || backendConnectionsRef.current;
 
     const { prompt, imageUrl, videoData, characterData, productData, settingData } = getConnectedData(nodeId, nodesToUse, connectionsToUse);
+    const connectedVideos = getConnectedVideosForStitch(nodeId, nodesToUse, connectionsToUse);
 
     setNodes(nds =>
       nds.map(n => {
@@ -367,6 +395,10 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
 
         if (n.type === 'extension') {
           return { ...n, data: { ...n.data, connectedPrompt: prompt, connectedVideo: videoData } };
+        }
+
+        if (n.type === 'stitch') {
+          return { ...n, data: { ...n.data, connectedVideos } };
         }
 
         return n;
@@ -685,8 +717,8 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
         targetType: targetNode.type,
       });
 
-      // Update video/extension nodes if affected
-      if (targetNode.type === 'video' || targetNode.type === 'extension') {
+      // Update video/extension/stitch nodes if affected
+      if (targetNode.type === 'video' || targetNode.type === 'extension' || targetNode.type === 'stitch') {
         const latestNodes = backendNodesRef.current;
         updateVideoNodeConnectedData(connection.target, latestNodes, updatedConnections);
       }
@@ -713,7 +745,7 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
         setBackendConnections(currentConnections);
 
         const targetNode = currentNodes.find(n => n.id === edge.target);
-        if (targetNode && (targetNode.type === 'video' || targetNode.type === 'extension')) {
+        if (targetNode && (targetNode.type === 'video' || targetNode.type === 'extension' || targetNode.type === 'stitch')) {
           updateVideoNodeConnectedData(edge.target, currentNodes, currentConnections);
         }
       } catch (error) {
@@ -723,7 +755,7 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
   }, [projectId, updateVideoNodeConnectedData]);
 
   // Handle node creation
-  const handleAddNode = async (type: 'image' | 'prompt' | 'video' | 'container' | 'ratio' | 'scene' | 'extension' | 'character' | 'product' | 'setting') => {
+  const handleAddNode = async (type: 'image' | 'prompt' | 'video' | 'container' | 'ratio' | 'scene' | 'extension' | 'character' | 'product' | 'setting' | 'stitch') => {
     try {
       // Place node at the center of the current viewport with a small random offset
       const randomOffset = () => Math.floor(Math.random() * 100) - 50;
@@ -1044,6 +1076,47 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
     }
   }, [updateNodeData, startJobPolling, refreshSubscription]);
 
+  // Handle video stitching - gathers connected video URLs and dispatches stitch job
+  const handleStitchVideo = useCallback(async (nodeId: string) => {
+    const currentNodes = backendNodesRef.current;
+    const currentConnections = backendConnectionsRef.current;
+
+    const stitchNode = currentNodes.find(n => n.id === nodeId);
+    if (!stitchNode || stitchNode.type !== 'stitch') return;
+
+    const connectedVideos = getConnectedVideosForStitch(nodeId, currentNodes, currentConnections);
+    const videoUrls = connectedVideos.map(v => v.video_url).filter(Boolean);
+
+    if (videoUrls.length < 2) {
+      alert('Please connect at least 2 video nodes with generated videos');
+      return;
+    }
+
+    try {
+      updateNodeData(nodeId, { progress_message: 'Starting stitch...' }, 'processing');
+
+      const job = await aiApi.stitchVideos({
+        node_id: nodeId,
+        video_urls: videoUrls,
+        transitions: stitchNode.data?.transitions || [],
+        aspect_ratio: stitchNode.data?.aspect_ratio || '16:9',
+        output_format: 'mp4',
+      });
+
+      console.log('Stitch job started:', job);
+      startJobPolling(job.job_id, nodeId);
+    } catch (error: any) {
+      const errorMessage = error?.message || error?.toString() || 'Unknown error';
+      console.error('Failed to stitch videos:', errorMessage, error);
+      updateNodeData(
+        nodeId,
+        { progress_message: `Stitch failed: ${errorMessage}` },
+        'failed',
+        errorMessage
+      );
+    }
+  }, [updateNodeData, startJobPolling]);
+
   // Handle adding a scene node from the gallery
   const handleAddSceneFromGallery = async (sceneDefinition: SceneDefinitionItem | null) => {
     setShowSceneGallery(false);
@@ -1295,6 +1368,18 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
         setShowTemplateBrowser(true);
       },
       id: 'templates',
+    },
+    {
+      title: "Stitch",
+      icon: (
+        <IconLink className="h-full w-full text-neutral-500 dark:text-neutral-300" />
+      ),
+      href: "#",
+      onClick: (e: React.MouseEvent) => {
+        e.preventDefault();
+        handleAddNode('stitch');
+      },
+      id: 'stitch',
     },
     {
       title: "A/B Compare",
