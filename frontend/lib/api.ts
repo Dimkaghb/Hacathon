@@ -942,6 +942,11 @@ export interface TemplateItem {
     }>;
   };
   usage_count: number;
+  is_published: boolean;
+  published_at: string | null;
+  remix_count: number;
+  rating: number;
+  rating_count: number;
   created_at: string;
   updated_at: string;
 }
@@ -1004,10 +1009,127 @@ export const hooksApi = {
   },
 };
 
+// Campaigns API
+export interface CampaignProjectSummary {
+  id: string;
+  name: string;
+  thumbnail_url: string | null;
+  updated_at: string;
+}
+
+export interface CampaignCharacterSummary {
+  id: string;
+  name: string | null;
+  source_image_url: string | null;
+}
+
+export interface CampaignItem {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string | null;
+  status: string;
+  metadata: Record<string, any> | null;
+  project_count: number;
+  character_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CampaignDetail {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string | null;
+  status: string;
+  metadata: Record<string, any> | null;
+  projects: CampaignProjectSummary[];
+  characters: CampaignCharacterSummary[];
+  created_at: string;
+  updated_at: string;
+}
+
+export const campaignsApi = {
+  list: async (status?: string) => {
+    const params = status ? `?status=${encodeURIComponent(status)}` : '';
+    return apiFetch<CampaignItem[]>(`/api/campaigns${params}`);
+  },
+
+  getById: async (id: string) => {
+    return apiFetch<CampaignDetail>(`/api/campaigns/${id}`);
+  },
+
+  create: async (data: {
+    name: string;
+    description?: string;
+    status?: string;
+    metadata?: Record<string, any>;
+  }) => {
+    return apiFetch<CampaignDetail>('/api/campaigns', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  update: async (id: string, data: {
+    name?: string;
+    description?: string;
+    status?: string;
+    metadata?: Record<string, any>;
+  }) => {
+    return apiFetch<CampaignDetail>(`/api/campaigns/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  delete: async (id: string) => {
+    return apiFetch<void>(`/api/campaigns/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  addProject: async (campaignId: string, projectId: string) => {
+    return apiFetch<CampaignDetail>(`/api/campaigns/${campaignId}/projects/${projectId}`, {
+      method: 'POST',
+    });
+  },
+
+  removeProject: async (campaignId: string, projectId: string) => {
+    return apiFetch<CampaignDetail>(`/api/campaigns/${campaignId}/projects/${projectId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  addCharacter: async (campaignId: string, characterId: string) => {
+    return apiFetch<CampaignDetail>(`/api/campaigns/${campaignId}/characters/${characterId}`, {
+      method: 'POST',
+    });
+  },
+
+  removeCharacter: async (campaignId: string, characterId: string) => {
+    return apiFetch<CampaignDetail>(`/api/campaigns/${campaignId}/characters/${characterId}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
 export const templatesApi = {
   list: async (category?: string) => {
     const params = category ? `?category=${encodeURIComponent(category)}` : '';
     return apiFetch<TemplateItem[]>(`/api/templates${params}`);
+  },
+
+  listCommunity: async (category?: string, sort?: string) => {
+    const params = new URLSearchParams();
+    if (category) params.set('category', category);
+    if (sort) params.set('sort', sort);
+    const qs = params.toString();
+    return apiFetch<TemplateItem[]>(`/api/templates/community${qs ? `?${qs}` : ''}`);
+  },
+
+  listMine: async () => {
+    return apiFetch<TemplateItem[]>('/api/templates/mine');
   },
 
   getById: async (id: string) => {
@@ -1027,5 +1149,30 @@ export const templatesApi = {
         body: JSON.stringify(data),
       }
     );
+  },
+
+  publish: async (id: string) => {
+    return apiFetch<TemplateItem>(`/api/templates/${id}/publish`, {
+      method: 'POST',
+    });
+  },
+
+  unpublish: async (id: string) => {
+    return apiFetch<TemplateItem>(`/api/templates/${id}/unpublish`, {
+      method: 'POST',
+    });
+  },
+
+  remix: async (id: string) => {
+    return apiFetch<TemplateItem>(`/api/templates/${id}/remix`, {
+      method: 'POST',
+    });
+  },
+
+  rate: async (id: string, rating: number) => {
+    return apiFetch<TemplateItem>(`/api/templates/${id}/rate`, {
+      method: 'POST',
+      body: JSON.stringify({ rating }),
+    });
   },
 };

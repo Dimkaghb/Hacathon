@@ -9,7 +9,7 @@ from app.config import settings
 from app.core.database import engine, Base
 from app.core.redis import close_redis
 from app.core.exceptions import InsufficientCreditsError
-from app.api import auth, projects, nodes, connections, ai, files, subscriptions, webhooks, characters, scene_definitions, templates, hooks
+from app.api import auth, projects, nodes, connections, ai, files, subscriptions, webhooks, characters, scene_definitions, templates, hooks, campaigns
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -61,6 +61,7 @@ app.include_router(characters.router, prefix="/api/characters", tags=["Character
 app.include_router(scene_definitions.router, prefix="/api/scene-definitions", tags=["Scene Definitions"])
 app.include_router(templates.router, prefix="/api/templates", tags=["Templates"])
 app.include_router(hooks.router, prefix="/api/hooks", tags=["Hooks"])
+app.include_router(campaigns.router, prefix="/api/campaigns", tags=["Campaigns"])
 
 
 @app.exception_handler(InsufficientCreditsError)

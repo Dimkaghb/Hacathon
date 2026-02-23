@@ -178,6 +178,14 @@ cd backend && docker-compose build api && docker-compose up -d api
 - **Seeds**: `backend/app/seeds/scene_definitions.py` — 14 system scene definitions
 - **Migration**: `backend/alembic/versions/20260211_add_scene_definitions.py`
 
+### Step 5.2 — Campaign Organization (Completed)
+- **Campaign model**: `backend/app/models/campaign.py` — campaigns with many-to-many junction tables (`campaign_projects`, `campaign_characters`)
+- **Campaign schemas**: `backend/app/schemas/campaign.py` — CampaignCreate, CampaignUpdate, CampaignResponse, CampaignDetailResponse
+- **Campaigns API**: `backend/app/api/campaigns.py` mounted at `/api/campaigns` — full CRUD + project/character assignment/removal
+- **Migration**: `backend/alembic/versions/20260223_add_campaigns.py`
+- **Frontend API client**: `campaignsApi` in `frontend/lib/api.ts` — list, getById, create, update, delete, addProject, removeProject, addCharacter, removeCharacter
+- **Dashboard**: `frontend/app/dashboard/page.tsx` — Campaign section above projects with expand-to-see-projects, status badges (draft/active/archived), project/character counts, inline edit/delete/archive actions, assign-project dialog
+
 ### Step 2.2 — Multi-Node Templates (Completed)
 - **Template model**: `backend/app/models/template.py` — template blueprints with graph_definition JSON
 - **Template schemas**: `backend/app/schemas/template.py` — TemplateCreate, TemplateResponse, TemplateInstantiateRequest/Response
@@ -188,3 +196,17 @@ cd backend && docker-compose build api && docker-compose up -d api
 - **TemplateBrowserPanel**: `frontend/components/canvas/panels/TemplateBrowserPanel.tsx` — slide-out template browser with category tabs, search, variable input
 - **Frontend API client**: `templatesApi` in `frontend/lib/api.ts` — list, getById, instantiate
 - **ReactFlowCanvas**: "Templates" dock item replaces "Components", opens TemplateBrowserPanel, `handleInstantiateTemplate` stamps graph onto canvas
+
+### Step 5.3 — Community Templates / Remix (Completed)
+- **Template model extended**: Added `is_published`, `published_at`, `remix_count`, `rating`, `rating_count` columns
+- **Template schema extended**: `TemplateResponse` includes community fields + `TemplateRateRequest` (1-5 stars)
+- **Migration**: `backend/alembic/versions/20260223_add_community_template_fields.py`
+- **New API endpoints** in `backend/app/api/templates.py`:
+  - `GET /api/templates/community` — List published templates (sort by popular/recent/rating)
+  - `GET /api/templates/mine` — List current user's templates
+  - `POST /api/templates/{id}/publish` / `unpublish` — Toggle community visibility
+  - `POST /api/templates/{id}/remix` — Clone template as user's own + award 1 credit to creator
+  - `POST /api/templates/{id}/rate` — Rate template 1-5 stars (running average)
+- **Subscription service**: `reward_credits()` method in `subscription_service.py` — awards bonus credits via ADJUSTMENT transaction
+- **Frontend API client**: `templatesApi` extended with `listCommunity`, `listMine`, `publish`, `unpublish`, `remix`, `rate`
+- **TemplateBrowserPanel**: Rewritten with 3 tabs (System / My Templates / Community), star ratings, remix button, publish/unpublish toggle, community sort (popular/recent/rating)

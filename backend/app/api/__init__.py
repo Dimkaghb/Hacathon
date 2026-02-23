@@ -1,3 +1,3 @@
-from app.api import auth, projects, nodes, connections, ai, files, subscriptions, webhooks, characters, scene_definitions, templates, hooks
+from app.api import auth, projects, nodes, connections, ai, files, subscriptions, webhooks, characters, scene_definitions, templates, hooks, campaigns
 
-__all__ = ["auth", "projects", "nodes", "connections", "ai", "files", "subscriptions", "webhooks", "characters", "scene_definitions", "templates", "hooks"]
+__all__ = ["auth", "projects", "nodes", "connections", "ai", "files", "subscriptions", "webhooks", "characters", "scene_definitions", "templates", "hooks", "campaigns"]

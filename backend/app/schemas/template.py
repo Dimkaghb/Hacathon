@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime
 from uuid import UUID
 from typing import Optional, Dict, Any, List
@@ -28,6 +28,11 @@ class TemplateResponse(BaseModel):
     best_for: List[str] = []
     graph_definition: Dict[str, Any] = {}
     usage_count: int = 0
+    is_published: bool = False
+    published_at: Optional[datetime] = None
+    remix_count: int = 0
+    rating: float = 0.0
+    rating_count: int = 0
     created_at: datetime
     updated_at: datetime
 
@@ -45,3 +50,7 @@ class TemplateInstantiateRequest(BaseModel):
 class TemplateInstantiateResponse(BaseModel):
     nodes: List[Dict[str, Any]]
     connections: List[Dict[str, Any]]
+
+
+class TemplateRateRequest(BaseModel):
+    rating: float = Field(..., ge=1.0, le=5.0, description="Rating from 1 to 5")
