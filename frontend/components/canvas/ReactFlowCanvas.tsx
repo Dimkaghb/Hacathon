@@ -36,6 +36,7 @@ import SceneGalleryPanel from './panels/SceneGalleryPanel';
 import TemplateBrowserPanel from './panels/TemplateBrowserPanel';
 import HookLibraryPanel from './panels/HookLibraryPanel';
 import ABComparisonPanel from './panels/ABComparisonPanel';
+import ExportDialog from './dialogs/ExportDialog';
 import { SceneDefinitionItem, TemplateItem, templatesApi } from '@/lib/api';
 
 const SCREENSHOT_WIDTH = 640;
@@ -196,6 +197,11 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
   const [showTemplateBrowser, setShowTemplateBrowser] = useState(false);
   const [showHookLibrary, setShowHookLibrary] = useState(false);
   const [showABPanel, setShowABPanel] = useState(false);
+  const [exportDialogState, setExportDialogState] = useState<{
+    open: boolean;
+    videoUrl: string | null;
+    nodeId: string | null;
+  }>({ open: false, videoUrl: null, nodeId: null });
   // Track which scene node is requesting gallery (for "Change scene type")
   const sceneGalleryTargetNodeRef = useRef<string | null>(null);
   const hookLibraryTargetNodeRef = useRef<string | null>(null);
@@ -333,6 +339,12 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
           onGenerate: node.type === 'video' ? () => handleGenerateVideo(node.id) : undefined,
           onExtend: node.type === 'extension' ? () => handleExtendVideo(node.id) : undefined,
           onStitch: node.type === 'stitch' ? () => handleStitchVideo(node.id) : undefined,
+          onExport: (node.type === 'video' || node.type === 'extension' || node.type === 'stitch')
+            ? () => {
+                const url = node.data?.video_url;
+                setExportDialogState({ open: true, videoUrl: url || null, nodeId: node.id });
+              }
+            : undefined,
           onGenerateScene: node.type === 'scene' ? () => handleGenerateVideo(node.id) : undefined,
           onOpenSceneGallery: node.type === 'scene' ? () => {
             sceneGalleryTargetNodeRef.current = node.id;
@@ -1482,6 +1494,14 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
         onClose={() => setShowABPanel(false)}
         nodes={backendNodes}
         onUpdateNode={handleNodeUpdate}
+      />
+
+      {/* Export Dialog */}
+      <ExportDialog
+        open={exportDialogState.open}
+        onClose={() => setExportDialogState({ open: false, videoUrl: null, nodeId: null })}
+        videoUrl={exportDialogState.videoUrl}
+        nodeId={exportDialogState.nodeId}
       />
 
       {/* Hook Library Panel */}

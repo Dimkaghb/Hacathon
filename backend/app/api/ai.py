@@ -27,6 +27,7 @@ from app.schemas.ai import (
     VideoGenerateRequest,
     VideoExtendRequest,
     VideoStitchRequest,
+    ExportVideoRequest,
     JobStatusResponse,
     CharacterCreate,
     CharacterResponse,
@@ -41,7 +42,9 @@ from app.core.exceptions import InsufficientCreditsError
 from app.tasks.video_tasks import generate_video as generate_video_task
 from app.tasks.video_tasks import extend_video as extend_video_task
 from app.tasks.video_tasks import stitch_videos as stitch_videos_task
+from app.tasks.video_tasks import export_video as export_video_task
 from app.tasks.face_tasks import analyze_face as analyze_face_task
+from app.services.stitch_service import PLATFORM_PRESETS
 
 router = APIRouter()
 
@@ -404,6 +407,78 @@ async def stitch_videos_endpoint(
         status=job.status.value,
         progress=0,
     )
+
+
+@router.post("/export-video", response_model=JobStatusResponse)
+async def export_video(
+    request: ExportVideoRequest,
+    current_user: User = Depends(get_current_user),
+    subscription: Subscription = Depends(require_active_subscription),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Export a video for a specific platform (TikTok, Instagram, YouTube, etc.).
+
+    Re-encodes to the platform's required aspect ratio, resolution, and
+    max duration. Zero credits charged — post-processing only.
+    """
+    # Validate platform
+    if request.platform not in PLATFORM_PRESETS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown platform: {request.platform}. Valid: {list(PLATFORM_PRESETS.keys())}",
+        )
+
+    # Verify node exists and user has access
+    result = await db.execute(
+        select(Node)
+        .join(Project)
+        .where(
+            Node.id == request.node_id,
+            Project.user_id == current_user.id,
+        )
+    )
+    node = result.scalar_one_or_none()
+    if not node:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Node not found",
+        )
+
+    # Create job record
+    job = Job(
+        node_id=node.id,
+        type=JobType.VIDEO_EXPORT,
+        status=JobStatus.PENDING,
+    )
+    db.add(job)
+    await db.commit()
+    await db.refresh(job)
+
+    # Dispatch Celery task
+    export_video_task.delay(
+        job_id=str(job.id),
+        node_id=str(node.id),
+        project_id=str(node.project_id),
+        video_url=request.video_url,
+        platform=request.platform,
+    )
+
+    return JobStatusResponse(
+        job_id=job.id,
+        node_id=node.id,
+        type=job.type.value,
+        status=job.status.value,
+        progress=0,
+    )
+
+
+@router.get("/export-presets")
+async def get_export_presets(
+    current_user: User = Depends(get_current_user),
+):
+    """Return available platform export presets."""
+    return PLATFORM_PRESETS
 
 
 @router.get("/jobs/{job_id}", response_model=JobStatusResponse)

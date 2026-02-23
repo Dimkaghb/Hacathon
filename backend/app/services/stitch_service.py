@@ -37,6 +37,15 @@ ASPECT_RATIO_DIMENSIONS: dict[str, Tuple[str, str]] = {
 
 TRANSITION_DURATION = 0.5  # seconds for fade / crossfade
 
+# Platform export presets — aspect ratio, max duration (seconds), resolution
+PLATFORM_PRESETS: dict[str, dict] = {
+    "tiktok":          {"aspect_ratio": "9:16", "max_duration": 60,   "resolution": "1080x1920", "label": "TikTok"},
+    "instagram_reels": {"aspect_ratio": "9:16", "max_duration": 90,   "resolution": "1080x1920", "label": "Instagram Reels"},
+    "instagram_feed":  {"aspect_ratio": "4:5",  "max_duration": 60,   "resolution": "1080x1350", "label": "Instagram Feed"},
+    "youtube_shorts":  {"aspect_ratio": "9:16", "max_duration": 60,   "resolution": "1080x1920", "label": "YouTube Shorts"},
+    "youtube":         {"aspect_ratio": "16:9", "max_duration": None, "resolution": "1920x1080", "label": "YouTube"},
+}
+
 
 async def _get_video_duration(video_path: str) -> float:
     """Return the video duration in seconds using ffprobe."""
@@ -215,6 +224,82 @@ class StitchService:
         )
         logger.info(f"Stitch complete for project {project_id}")
         return signed_url
+
+    async def export_for_platform(
+        self,
+        video_url: str,
+        platform: str,
+        project_id: str,
+    ) -> dict:
+        """
+        Re-encode a video to match a platform's export preset.
+
+        Downloads the source video, scales/pads to the target resolution,
+        trims to the platform's max duration, and uploads the result.
+
+        Returns:
+            Dict with video_url (signed GCS URL), platform, and preset info.
+        """
+        preset = PLATFORM_PRESETS.get(platform)
+        if not preset:
+            raise ValueError(f"Unknown platform: {platform}")
+
+        w_str, h_str = preset["resolution"].split("x")
+        max_dur = preset["max_duration"]
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # ── 1. Download source video ──────────────────────────────────
+            src_path = os.path.join(tmpdir, "source.mp4")
+            async with httpx.AsyncClient(timeout=120, follow_redirects=True) as client:
+                await self._download_video(client, video_url, src_path)
+
+            # ── 2. Scale / pad to target resolution ───────────────────────
+            scaled_path = os.path.join(tmpdir, "scaled.mp4")
+            await _run_ffmpeg(
+                "-i", src_path,
+                "-vf", (
+                    f"scale={w_str}:{h_str}:force_original_aspect_ratio=decrease,"
+                    f"pad={w_str}:{h_str}:(ow-iw)/2:(oh-ih)/2,setsar=1"
+                ),
+                "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+                "-an",
+                scaled_path,
+            )
+
+            output_path = scaled_path
+
+            # ── 3. Trim to max duration if needed ─────────────────────────
+            if max_dur is not None:
+                duration = await _get_video_duration(scaled_path)
+                if duration > max_dur:
+                    trimmed_path = os.path.join(tmpdir, "trimmed.mp4")
+                    await _run_ffmpeg(
+                        "-i", scaled_path,
+                        "-t", str(max_dur),
+                        "-c", "copy",
+                        trimmed_path,
+                    )
+                    output_path = trimmed_path
+
+            # ── 4. Upload to GCS ──────────────────────────────────────────
+            with open(output_path, "rb") as f:
+                video_bytes = f.read()
+
+        video_id = str(uuid4())
+        gcs_path = f"exports/{project_id}/{platform}/{video_id}.mp4"
+        logger.info(f"Uploading {platform} export ({len(video_bytes):,} bytes) → {gcs_path}")
+        signed_url = await storage_service.upload_file(
+            file_data=video_bytes,
+            object_name=gcs_path,
+            content_type="video/mp4",
+        )
+        logger.info(f"Export complete: {platform} for project {project_id}")
+        return {
+            "video_url": signed_url,
+            "platform": platform,
+            "resolution": preset["resolution"],
+            "aspect_ratio": preset["aspect_ratio"],
+        }
 
     @staticmethod
     async def _download_video(client: httpx.AsyncClient, url: str, dest: str) -> str:

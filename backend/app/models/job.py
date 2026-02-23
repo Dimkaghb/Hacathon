@@ -14,6 +14,7 @@ class JobType(str, enum.Enum):
     VIDEO_GENERATION = "video_generation"
     VIDEO_EXTENSION = "video_extension"
     VIDEO_STITCH = "video_stitch"
+    VIDEO_EXPORT = "video_export"
 
 
 class JobStatus(str, enum.Enum):

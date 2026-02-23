@@ -518,3 +518,53 @@ def stitch_videos(
 
     finally:
         loop.close()
+
+
+@celery_app.task(
+    bind=True,
+    name="app.tasks.video_tasks.export_video",
+    max_retries=2,
+    default_retry_delay=15,
+    time_limit=180,
+    soft_time_limit=150,
+)
+def export_video(
+    self,
+    job_id: str,
+    node_id: str,
+    project_id: str,
+    video_url: str,
+    platform: str,
+) -> Dict[str, Any]:
+    """
+    Export a video for a specific platform (resize, crop, trim).
+
+    Zero credit cost — post-processing only, no AI generation.
+    """
+    logger.info(f"Starting export task for job {job_id} (platform={platform})")
+
+    update_job_status_sync(job_id, JobStatus.PROCESSING, progress=10)
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    try:
+        result_data = loop.run_until_complete(
+            stitch_service.export_for_platform(
+                video_url=video_url,
+                platform=platform,
+                project_id=project_id,
+            )
+        )
+
+        update_job_status_sync(job_id, JobStatus.COMPLETED, progress=100, result=result_data)
+        logger.info(f"Export job {job_id} completed: {platform}")
+        return result_data
+
+    except Exception as e:
+        logger.error(f"Export job {job_id} failed: {e}")
+        update_job_status_sync(job_id, JobStatus.FAILED, error=str(e))
+        raise
+
+    finally:
+        loop.close()

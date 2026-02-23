@@ -216,14 +216,23 @@ export default function VideoNodeRF({ data, selected }: CustomNodeProps) {
 
         {/* Video Display */}
         {node.video_url && !node.video_url.startsWith('gs://') && (
-          <video
-            src={node.video_url}
-            controls
-            preload="metadata"
-            className="w-full rounded-md mt-3"
-            style={{ maxHeight: '140px' }}
-            onClick={(e) => e.stopPropagation()}
-          />
+          <div className="mt-3">
+            <video
+              src={node.video_url}
+              controls
+              preload="metadata"
+              className="w-full rounded-md"
+              style={{ maxHeight: '140px' }}
+              onClick={(e) => e.stopPropagation()}
+            />
+            {/* Export button */}
+            <button
+              onClick={(e) => { e.stopPropagation(); data.onExport?.(); }}
+              className="w-full mt-1.5 py-1 text-[10px] text-[#808080] hover:text-white border border-[#3a3a3a] hover:border-[#555] rounded transition-colors"
+            >
+              Export for Platform
+            </button>
+          </div>
         )}
       </div>
     </div>
