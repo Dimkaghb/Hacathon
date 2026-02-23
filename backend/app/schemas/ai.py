@@ -75,6 +75,12 @@ class VideoExtendRequest(BaseModel):
     veo_video_name: Optional[str] = None  # Original Veo file name for extension
 
 
+class ExportVideoRequest(BaseModel):
+    node_id: UUID
+    video_url: str
+    platform: str  # tiktok, instagram_reels, instagram_feed, youtube_shorts, youtube
+
+
 class JobStatusResponse(BaseModel):
     job_id: UUID
     node_id: UUID

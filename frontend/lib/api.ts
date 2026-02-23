@@ -649,6 +649,32 @@ export const aiApi = {
       body: JSON.stringify(request),
     });
   },
+
+  exportVideo: async (request: {
+    node_id: string;
+    video_url: string;
+    platform: string;
+  }) => {
+    return apiFetch<{
+      job_id: string;
+      node_id: string;
+      type: string;
+      status: string;
+      progress: number;
+    }>('/api/ai/export-video', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  },
+
+  getExportPresets: async () => {
+    return apiFetch<Record<string, {
+      aspect_ratio: string;
+      max_duration: number | null;
+      resolution: string;
+      label: string;
+    }>>('/api/ai/export-presets');
+  },
 };
 
 // Subscription API

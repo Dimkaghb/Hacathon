@@ -9,6 +9,7 @@ export interface NodeData {
   onGenerate?: () => void;
   onExtend?: () => void;
   onStitch?: () => void;
+  onExport?: () => void;
   onGenerateScene?: () => void;
   onOpenSceneGallery?: () => void;
   onOpenHookLibrary?: () => void;

@@ -209,16 +209,24 @@ export default function StitchNodeRF({ data, selected }: CustomNodeProps) {
               style={{ maxHeight: '140px' }}
               onClick={(e) => e.stopPropagation()}
             />
-            <a
-              href={node.video_url}
-              download="stitched.mp4"
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="block mt-1 text-[10px] text-center text-[#3b82f6] hover:text-[#60a5fa] transition-colors"
-            >
-              Download ↓
-            </a>
+            <div className="flex gap-1 mt-1.5">
+              <a
+                href={node.video_url}
+                download="stitched.mp4"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="flex-1 py-1 text-[10px] text-center text-[#3b82f6] hover:text-[#60a5fa] border border-[#3a3a3a] rounded transition-colors"
+              >
+                Download
+              </a>
+              <button
+                onClick={(e) => { e.stopPropagation(); data.onExport?.(); }}
+                className="flex-1 py-1 text-[10px] text-[#808080] hover:text-white border border-[#3a3a3a] hover:border-[#555] rounded transition-colors"
+              >
+                Export
+              </button>
+            </div>
           </div>
         )}
       </div>
