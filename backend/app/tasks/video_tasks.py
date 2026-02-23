@@ -21,6 +21,7 @@ from app.models.job import Job, JobStatus
 from app.config import settings
 from app.services.subscription_service import refund_credits_sync
 from app.services.prompt_service import build_product_context, build_setting_context, format_performance
+from app.services.stitch_service import stitch_service
 
 logger = logging.getLogger(__name__)
 
@@ -450,3 +451,70 @@ def extend_video(
         build_result_data=build_result,
         credit_refund_info=credit_refund_info,
     )
+
+
+@celery_app.task(
+    bind=True,
+    name="app.tasks.video_tasks.stitch_videos",
+    max_retries=2,
+    default_retry_delay=15,
+    time_limit=300,
+    soft_time_limit=270,
+)
+def stitch_videos(
+    self,
+    job_id: str,
+    node_id: str,
+    project_id: str,
+    video_urls: list,
+    transitions: Optional[list] = None,
+    aspect_ratio: Optional[str] = None,
+    output_format: str = "mp4",
+) -> Dict[str, Any]:
+    """
+    Stitch multiple video segments using FFmpeg.
+
+    Zero credit cost — assembly only, no AI generation.
+    Requires the ffmpeg binary to be available in the worker environment.
+    """
+    logger.info(f"Starting stitch task for job {job_id} ({len(video_urls)} videos)")
+
+    update_job_status_sync(job_id, JobStatus.PROCESSING, progress=5)
+    update_node_status_sync(node_id, NodeStatus.PROCESSING)
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    try:
+        update_job_status_sync(job_id, JobStatus.PROCESSING, progress=10)
+
+        signed_url = loop.run_until_complete(
+            stitch_service.stitch_videos(
+                video_urls=video_urls,
+                transitions=transitions or [],
+                project_id=project_id,
+                target_aspect_ratio=aspect_ratio,
+                output_format=output_format,
+            )
+        )
+
+        result_data: Dict[str, Any] = {
+            "video_url": signed_url,
+            "stitch_count": len(video_urls),
+            "aspect_ratio": aspect_ratio,
+            "transitions": transitions,
+        }
+
+        update_job_status_sync(job_id, JobStatus.COMPLETED, progress=100, result=result_data)
+        update_node_status_sync(node_id, NodeStatus.COMPLETED, data=result_data)
+        logger.info(f"Stitch job {job_id} completed successfully")
+        return result_data
+
+    except Exception as e:
+        logger.error(f"Stitch job {job_id} failed: {e}")
+        update_job_status_sync(job_id, JobStatus.FAILED, error=str(e))
+        update_node_status_sync(node_id, NodeStatus.FAILED, error_message=str(e))
+        raise
+
+    finally:
+        loop.close()

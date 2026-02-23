@@ -630,6 +630,25 @@ export const aiApi = {
       body: JSON.stringify(request),
     });
   },
+
+  stitchVideos: async (request: {
+    node_id: string;
+    video_urls: string[];
+    transitions?: string[];
+    aspect_ratio?: string;
+    output_format?: string;
+  }) => {
+    return apiFetch<{
+      job_id: string;
+      node_id: string;
+      type: string;
+      status: string;
+      progress: number;
+    }>('/api/ai/stitch-videos', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  },
 };
 
 // Subscription API

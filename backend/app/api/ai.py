@@ -26,6 +26,7 @@ from app.schemas.ai import (
     PromptEnhanceResponse,
     VideoGenerateRequest,
     VideoExtendRequest,
+    VideoStitchRequest,
     JobStatusResponse,
     CharacterCreate,
     CharacterResponse,
@@ -39,6 +40,7 @@ from app.core.exceptions import InsufficientCreditsError
 # Import Celery tasks
 from app.tasks.video_tasks import generate_video as generate_video_task
 from app.tasks.video_tasks import extend_video as extend_video_task
+from app.tasks.video_tasks import stitch_videos as stitch_videos_task
 from app.tasks.face_tasks import analyze_face as analyze_face_task
 
 router = APIRouter()
@@ -333,6 +335,65 @@ async def extend_video(
             "veo_video_name": request.veo_video_name,
             "user_id": str(current_user.id),
             "credit_cost": credit_cost,
+        },
+    )
+
+    return JobStatusResponse(
+        job_id=job.id,
+        node_id=node.id,
+        type=job.type.value,
+        status=job.status.value,
+        progress=0,
+    )
+
+
+@router.post("/stitch-videos", response_model=JobStatusResponse)
+async def stitch_videos_endpoint(
+    request: VideoStitchRequest,
+    current_user: User = Depends(get_current_user),
+    subscription: Subscription = Depends(require_active_subscription),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Stitch multiple video segments into one final video using FFmpeg.
+
+    Videos are concatenated in the order provided, with optional transitions
+    (cut, fade, crossfade) and aspect-ratio normalisation.
+
+    Zero credits charged — this is assembly only, no AI generation.
+    """
+    if len(request.video_urls) < 2:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="At least 2 video_urls are required for stitching",
+        )
+
+    # Verify the stitch node belongs to the authenticated user
+    result = await db.execute(
+        select(Node)
+        .join(Project)
+        .where(
+            Node.id == request.node_id,
+            Project.user_id == current_user.id,
+        )
+    )
+    node = result.scalar_one_or_none()
+    if not node:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Node not found",
+        )
+
+    job = await create_and_dispatch_video_job(
+        db=db,
+        node=node,
+        job_type=JobType.VIDEO_STITCH,
+        celery_task=stitch_videos_task,
+        task_kwargs={
+            "video_urls": request.video_urls,
+            "transitions": request.transitions,
+            "aspect_ratio": request.aspect_ratio,
+            "output_format": request.output_format,
         },
     )
 

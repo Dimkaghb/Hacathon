@@ -57,6 +57,14 @@ class VideoGenerateRequest(BaseModel):
     use_fast_model: bool = False  # Use faster but lower quality model
 
 
+class VideoStitchRequest(BaseModel):
+    node_id: UUID
+    video_urls: List[str]                          # Ordered list of signed video URLs
+    transitions: List[str] = []                    # "cut" | "fade" | "crossfade" per junction
+    aspect_ratio: Optional[str] = None             # "9:16" | "4:5" | "1:1" | "16:9"
+    output_format: str = "mp4"
+
+
 class VideoExtendRequest(BaseModel):
     node_id: UUID
     video_url: str

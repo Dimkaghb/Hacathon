@@ -19,6 +19,7 @@ class NodeType(str, enum.Enum):
     CHARACTER = "character"
     PRODUCT = "product"
     SETTING = "setting"
+    STITCH = "stitch"
 
 
 class NodeStatus(str, enum.Enum):

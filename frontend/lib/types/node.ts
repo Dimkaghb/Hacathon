@@ -1,6 +1,6 @@
 // Node editor types
 
-export type NodeType = 'image' | 'prompt' | 'video' | 'container' | 'ratio' | 'scene' | 'extension' | 'character' | 'product' | 'setting';
+export type NodeType = 'image' | 'prompt' | 'video' | 'container' | 'ratio' | 'scene' | 'extension' | 'character' | 'product' | 'setting' | 'stitch';
 export type NodeStatus = 'idle' | 'processing' | 'completed' | 'failed';
 
 export interface Node {

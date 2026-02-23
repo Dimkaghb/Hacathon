@@ -16,6 +16,7 @@ class NodeType(str, Enum):
     CHARACTER = "character"
     PRODUCT = "product"
     SETTING = "setting"
+    STITCH = "stitch"
 
 
 class NodeStatus(str, Enum):
