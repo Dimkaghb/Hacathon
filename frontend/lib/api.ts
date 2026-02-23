@@ -675,6 +675,32 @@ export const aiApi = {
       label: string;
     }>>('/api/ai/export-presets');
   },
+
+  scriptToGraph: async (request: {
+    project_id: string;
+    scenes: Array<{
+      category: string;
+      script_text: string;
+      duration?: number;
+      scene_name?: string;
+      tone?: string;
+      scene_definition_id?: string;
+      prompt_template?: string;
+    }>;
+    character_id?: string;
+    product_data?: Record<string, any>;
+    setting_data?: Record<string, any>;
+    offset_x?: number;
+    offset_y?: number;
+  }) => {
+    return apiFetch<{ nodes: any[]; connections: any[] }>(
+      '/api/ai/script-to-graph',
+      {
+        method: 'POST',
+        body: JSON.stringify(request),
+      }
+    );
+  },
 };
 
 // Subscription API
