@@ -1482,7 +1482,7 @@ frontend/app/dashboard/page.tsx                      — Add campaigns section
 
 ---
 
-## Implementation Dependencies Graph
+Implementation Dependencies Graph
 
 ```
 Phase 1: Foundation
