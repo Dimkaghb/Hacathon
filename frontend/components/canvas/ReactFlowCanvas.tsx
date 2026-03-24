@@ -970,11 +970,17 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
       return;
     }
 
-    const { prompt, imageUrl, characterData, productData, settingData } = getConnectedData(nodeId, currentNodes, currentConnections);
+    const { prompt: connectedPrompt, imageUrl, characterData, productData, settingData } = getConnectedData(nodeId, currentNodes, currentConnections);
+
+    // Scene nodes use their own script_text as the prompt — no Prompt node needed
+    const isSceneNode = videoNode?.type === 'scene';
+    const sceneScript = videoNode?.data?.script_text || videoNode?.data?.default_script || '';
+    const prompt = isSceneNode ? (sceneScript || connectedPrompt) : connectedPrompt;
+
     console.log('Generate video:', { nodeId, prompt, imageUrl, characterData, productData, settingData, connections: currentConnections.length });
 
     if (!prompt) {
-      alert('Please connect a prompt node first');
+      alert(isSceneNode ? 'Please write a script in the scene node first' : 'Please connect a prompt node first');
       return;
     }
 
@@ -991,7 +997,9 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
         product_data: productData || undefined,
         setting_data: settingData || undefined,
         resolution: videoNode?.data?.resolution || '720p',
-        duration: videoNode?.data?.duration || 8,
+        duration: isSceneNode
+          ? (videoNode?.data?.scene_duration || videoNode?.data?.duration || 8)
+          : (videoNode?.data?.duration || 8),
         aspect_ratio: '16:9',
         use_fast_model: videoNode?.data?.use_fast_model || false,
       });

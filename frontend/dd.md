@@ -127,7 +127,6 @@ Workflow Test Plan
   You won't believe what happened when I tried this...         
                                                             
   Step 4. Edit the script text to:
-  I tried this serum for 7 days and my skin is unrecognizable. 
    
   Step 5. Click Generate inside the Scene node                 
                                                             
