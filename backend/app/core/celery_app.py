@@ -50,6 +50,8 @@ celery_app.conf.update(
     task_routes={
         "app.tasks.video_tasks.generate_video": {"queue": "video"},
         "app.tasks.video_tasks.extend_video": {"queue": "video"},
+        "app.tasks.video_tasks.stitch_videos": {"queue": "video"},
+        "app.tasks.video_tasks.export_video": {"queue": "video"},
         "app.tasks.face_tasks.analyze_face": {"queue": "face"},
         "app.tasks.face_tasks.enhance_prompt": {"queue": "default"},
     },

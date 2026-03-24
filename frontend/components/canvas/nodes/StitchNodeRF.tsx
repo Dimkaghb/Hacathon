@@ -201,14 +201,30 @@ export default function StitchNodeRF({ data, selected }: CustomNodeProps) {
         {/* Result Video */}
         {hasVideo && !node.video_url.startsWith('gs://') && (
           <div className="mt-3">
-            <video
-              src={node.video_url}
-              controls
-              preload="metadata"
-              className="w-full rounded-md"
-              style={{ maxHeight: '140px' }}
-              onClick={(e) => e.stopPropagation()}
-            />
+            <div className="relative group">
+              <video
+                src={node.video_url}
+                controls
+                preload="metadata"
+                className="w-full rounded-md"
+                style={{ maxHeight: '140px' }}
+                onClick={(e) => e.stopPropagation()}
+              />
+              {/* Fullscreen button */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const vid = e.currentTarget.previousElementSibling as HTMLVideoElement;
+                  if (vid?.requestFullscreen) vid.requestFullscreen();
+                }}
+                title="Fullscreen"
+                className="absolute top-1 right-1 p-1 rounded bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+                </svg>
+              </button>
+            </div>
             <div className="flex gap-1 mt-1.5">
               <a
                 href={node.video_url}

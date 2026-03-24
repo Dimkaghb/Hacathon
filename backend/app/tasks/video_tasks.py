@@ -257,6 +257,10 @@ def generate_video(
     """
     logger.info(f"Starting video generation task {self.request.id} for job {job_id}")
 
+    # Veo API only accepts exactly 4, 6, or 8 seconds
+    valid_durations = [4, 6, 8]
+    duration = min(valid_durations, key=lambda x: abs(x - duration))
+
     # Update status to processing
     update_job_status_sync(job_id, JobStatus.PROCESSING, progress=0)
     update_node_status_sync(node_id, NodeStatus.PROCESSING)

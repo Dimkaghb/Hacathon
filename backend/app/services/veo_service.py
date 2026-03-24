@@ -242,13 +242,13 @@ class VeoService:
         logger.info(f"Starting video generation with prompt: {final_prompt[:100]}...")
 
         # Build configuration
+        # Note: person_generation="allow_adult" is not supported on Gemini API tier
         config = types.GenerateVideosConfig(
             resolution=resolution,
             aspect_ratio=aspect_ratio,
             duration_seconds=str(duration),
             negative_prompt=negative_prompt,
             number_of_videos=num_videos,
-            person_generation="allow_adult",  # Enable person generation
         )
 
         # Note: seed parameter is not supported in Gemini API

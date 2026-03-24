@@ -19,8 +19,10 @@ export default function VideoNodeRF({ data, selected }: CustomNodeProps) {
   const connectedProduct = data.connectedProduct || null;
   const connectedSetting = data.connectedSetting || null;
 
-  // Settings
-  const [duration, setDuration] = useState(node.duration || 8);
+  // Settings — Veo API only accepts 4, 6, or 8 seconds
+  const VALID_DURATIONS = [4, 6, 8];
+  const snapDuration = (v: number) => VALID_DURATIONS.reduce((a, b) => Math.abs(b - v) < Math.abs(a - v) ? b : a);
+  const [duration, setDuration] = useState(snapDuration(node.duration || 8));
   const [useFastModel, setUseFastModel] = useState(node.use_fast_model || false);
 
   const canGenerate = !!(connectedPrompt && connectedPrompt.trim().length > 0);
@@ -159,22 +161,30 @@ export default function VideoNodeRF({ data, selected }: CustomNodeProps) {
           </div>
         </div>
 
-        {/* Duration Setting */}
+        {/* Duration Setting — Veo API only supports 4, 6, or 8 seconds */}
         <div className="mb-3">
           <label className="rf-label">Duration (s)</label>
-          <input
-            type="number"
-            min="1"
-            max="60"
-            value={duration}
-            onChange={(e) => {
-              const val = parseInt(e.target.value) || 8;
-              setDuration(val);
-              data.onUpdate?.({ duration: val });
-            }}
-            className="rf-input"
+          <div
+            className="flex rounded-md overflow-hidden border border-[#2a2a2a]"
             onClick={(e) => e.stopPropagation()}
-          />
+          >
+            {VALID_DURATIONS.map((d) => (
+              <button
+                key={d}
+                onClick={() => {
+                  setDuration(d);
+                  data.onUpdate?.({ duration: d });
+                }}
+                className={`flex-1 px-2 py-1 text-[10px] font-medium transition-colors ${
+                  duration === d
+                    ? 'bg-[#2a2a2a] text-white'
+                    : 'bg-transparent text-[#606060] hover:text-[#808080]'
+                }`}
+              >
+                {d}s
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Progress Display */}

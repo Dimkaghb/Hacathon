@@ -185,13 +185,18 @@ class StitchService:
                     current = label_out
                     cumulative_offset += durations[i] - TRANSITION_DURATION
 
+                # Concatenate audio streams (simple concat, no cross-fade on audio)
+                audio_inputs = "".join(f"[{i}:a]" for i in range(n))
+                filter_parts.append(f"{audio_inputs}concat=n={n}:v=0:a=1[aout]")
+
                 filter_complex = ";".join(filter_parts)
                 await _run_ffmpeg(
                     *input_args,
                     "-filter_complex", filter_complex,
                     "-map", "[vout]",
+                    "-map", "[aout]",
                     "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-                    "-an",   # UGC clips are typically silent / music added later
+                    "-c:a", "aac", "-b:a", "192k",
                     output_path,
                 )
 
@@ -206,6 +211,7 @@ class StitchService:
                         f"pad={w}:{h}:(ow-iw)/2:(oh-ih)/2"
                     ),
                     "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+                    "-c:a", "copy",
                     resized,
                 )
                 output_path = resized
@@ -262,7 +268,7 @@ class StitchService:
                     f"pad={w_str}:{h_str}:(ow-iw)/2:(oh-ih)/2,setsar=1"
                 ),
                 "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-                "-an",
+                "-c:a", "aac", "-b:a", "192k",
                 scaled_path,
             )
 

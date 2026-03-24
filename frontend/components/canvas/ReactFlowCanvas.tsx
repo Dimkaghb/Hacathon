@@ -621,6 +621,19 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
 
   // Handle node changes with debounced position updates
   const handleNodesChange: OnNodesChange = useCallback((changes: NodeChange[]) => {
+    // Intercept remove events — delete from backend before letting RF update UI
+    const removeChanges = changes.filter(c => c.type === 'remove');
+    removeChanges.forEach(change => {
+      nodesApi.delete(projectId, change.id, shareTokenRef.current).catch(err =>
+        console.error('[handleNodesChange] Failed to delete node from backend:', change.id, err)
+      );
+      // Also clean up backend state refs
+      setBackendNodes(prev => prev.filter(n => n.id !== change.id));
+      setBackendConnections(prev =>
+        prev.filter(c => c.source_node_id !== change.id && c.target_node_id !== change.id)
+      );
+    });
+
     onNodesChange(changes);
 
     // Detect position changes and debounce API calls
@@ -646,8 +659,19 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
 
   // Handle edge changes
   const handleEdgesChange: OnEdgesChange = useCallback((changes) => {
+    // Intercept remove events — delete from backend
+    const removeChanges = changes.filter(c => c.type === 'remove');
+    removeChanges.forEach(change => {
+      // Skip temp edges not yet persisted
+      if (change.id.startsWith('temp-')) return;
+      connectionsApi.delete(projectId, change.id, shareTokenRef.current).catch(err =>
+        console.error('[handleEdgesChange] Failed to delete connection from backend:', change.id, err)
+      );
+      setBackendConnections(prev => prev.filter(c => c.id !== change.id));
+    });
+
     onEdgesChange(changes);
-  }, [onEdgesChange]);
+  }, [onEdgesChange, projectId]);
 
   // Handle connection creation — optimistic update with ref-based validation
   const handleConnect = useCallback(async (connection: Connection) => {
@@ -749,6 +773,9 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
     for (const edge of edgesToDelete) {
       // Skip temp edges that haven't been persisted yet
       if (edge.id.startsWith('temp-')) continue;
+
+      // Skip if already removed by handleEdgesChange (avoids double-delete)
+      if (!currentConnections.find(c => c.id === edge.id)) continue;
 
       try {
         await connectionsApi.delete(projectId, edge.id, shareTokenRef.current);
@@ -934,10 +961,12 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
     // Use refs to get latest state values (avoids stale closure issue)
     const currentNodes = backendNodesRef.current;
     const currentConnections = backendConnectionsRef.current;
-    
+
+    // Find node — may not be in ref yet on first render (ref lags state by one cycle).
+    // Fall back to defaults so generation still works; node data is only used for settings.
     const videoNode = currentNodes.find(n => n.id === nodeId);
-    if (!videoNode || videoNode.type !== 'video') {
-      console.error('Video node not found:', nodeId, 'Available nodes:', currentNodes.map(n => n.id));
+    if (videoNode && videoNode.type !== 'video' && videoNode.type !== 'scene') {
+      console.error('handleGenerateVideo called on wrong node type:', videoNode.type, nodeId);
       return;
     }
 
@@ -961,10 +990,10 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
         wardrobe_preset_id: characterData?.wardrobe_preset_id,
         product_data: productData || undefined,
         setting_data: settingData || undefined,
-        resolution: videoNode.data?.resolution || '720p',
-        duration: videoNode.data?.duration || 8,
+        resolution: videoNode?.data?.resolution || '720p',
+        duration: videoNode?.data?.duration || 8,
         aspect_ratio: '16:9',
-        use_fast_model: videoNode.data?.use_fast_model || false,
+        use_fast_model: videoNode?.data?.use_fast_model || false,
       });
 
       console.log('Video generation job started:', job);
