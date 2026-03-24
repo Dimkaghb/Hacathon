@@ -197,11 +197,11 @@ async def analyze_character_face(
     if not image_url:
         raise HTTPException(status_code=400, detail="Character has no source image")
 
-    # Deduct credits
+    # TESTING MODE: credit deduction disabled — re-enable by uncommenting below
     credit_cost = CREDIT_COSTS["face_analysis"]
-    await subscription_service.deduct_credits(
-        db, current_user.id, credit_cost, "face_analysis"
-    )
+    # await subscription_service.deduct_credits(
+    #     db, current_user.id, credit_cost, "face_analysis"
+    # )
 
     # Need a project to create the placeholder node — use user's first project
     from sqlalchemy import select as sa_select

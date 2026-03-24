@@ -9,6 +9,10 @@ export function CreditDisplay({ compact = false }: { compact?: boolean }) {
     useSubscription();
   const { open: sidebarOpen } = useSidebar();
 
+  // TESTING MODE: credit display hidden — re-enable by removing the early return below
+  return null;
+
+  // eslint-disable-next-line no-unreachable
   if (loading || !hasActiveSubscription) {
     return null;
   }

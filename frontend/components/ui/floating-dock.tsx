@@ -95,8 +95,8 @@ const FloatingDockMobile = ({
                   className={cn(
                     "flex h-10 w-10 items-center justify-center rounded-full transition-colors",
                     item.id === activeId
-                      ? "bg-blue-500 dark:bg-blue-600"
-                      : "bg-gray-50 dark:bg-neutral-900"
+                      ? "bg-blue-500"
+                      : "bg-[#1a1a1a] hover:bg-[#252525]"
                   )}
                 >
                   <div className="h-4 w-4">{item.icon}</div>
@@ -108,7 +108,7 @@ const FloatingDockMobile = ({
       </AnimatePresence>
       <button
         onClick={() => setOpen(!open)}
-        className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-50 dark:bg-neutral-800"
+        className="flex h-10 w-10 items-center justify-center rounded-full bg-[#0f0f0f] border border-white/10"
       >
         <IconLayoutNavbarCollapse className="h-5 w-5 text-neutral-500 dark:text-neutral-400" />
       </button>
@@ -131,7 +131,7 @@ const FloatingDockDesktop = ({
       onMouseMove={(e) => mouseX.set(e.pageX)}
       onMouseLeave={() => mouseX.set(Infinity)}
       className={cn(
-        "mx-auto hidden h-16 items-end gap-4 rounded-2xl bg-gray-50 px-4 pb-3 md:flex dark:bg-neutral-900",
+        "mx-auto hidden h-16 items-end gap-4 rounded-2xl bg-[#0f0f0f] border border-white/10 px-4 pb-3 md:flex shadow-xl",
         className,
       )}
     >
@@ -229,8 +229,8 @@ function IconContainer({
         className={cn(
           "relative flex aspect-square items-center justify-center rounded-full transition-colors",
           isActive
-            ? "bg-blue-500 dark:bg-blue-600"
-            : "bg-gray-200 dark:bg-neutral-800"
+            ? "bg-blue-500"
+            : "bg-[#1a1a1a] hover:bg-[#252525]"
         )}
       >
         <AnimatePresence>
@@ -239,7 +239,7 @@ function IconContainer({
               initial={{ opacity: 0, y: 10, x: "-50%" }}
               animate={{ opacity: 1, y: 0, x: "-50%" }}
               exit={{ opacity: 0, y: 2, x: "-50%" }}
-              className="absolute -top-8 left-1/2 w-fit rounded-md border border-gray-200 bg-gray-100 px-2 py-0.5 text-xs whitespace-pre text-neutral-700 dark:border-neutral-900 dark:bg-neutral-800 dark:text-white"
+              className="absolute -top-8 left-1/2 w-fit rounded-md border border-white/10 bg-[#1a1a1a] px-2 py-0.5 text-xs whitespace-pre text-neutral-300"
             >
               {title}
             </motion.div>
@@ -314,7 +314,7 @@ function IconContainerWithMenu({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 flex flex-col gap-1 p-2 rounded-xl bg-gray-100 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 shadow-lg min-w-[120px]"
+            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 flex flex-col gap-1 p-2 rounded-xl bg-[#0f0f0f] border border-white/10 shadow-xl min-w-[120px]"
           >
             {children.map((child) => (
               <button
@@ -325,10 +325,10 @@ function IconContainerWithMenu({
                   }
                   setMenuOpen(false);
                 }}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-200 dark:hover:bg-neutral-700 transition-colors text-left"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-left"
               >
                 <div className="h-4 w-4 flex-shrink-0">{child.icon}</div>
-                <span className="text-xs text-neutral-700 dark:text-neutral-300 whitespace-nowrap">
+                <span className="text-xs text-neutral-300 whitespace-nowrap">
                   {child.title}
                 </span>
               </button>
@@ -346,8 +346,8 @@ function IconContainerWithMenu({
           className={cn(
             "relative flex aspect-square items-center justify-center rounded-full transition-colors",
             isActive || menuOpen
-              ? "bg-blue-500 dark:bg-blue-600"
-              : "bg-gray-200 dark:bg-neutral-800"
+              ? "bg-blue-500"
+              : "bg-[#1a1a1a] hover:bg-[#252525]"
           )}
         >
           <AnimatePresence>
@@ -356,7 +356,7 @@ function IconContainerWithMenu({
                 initial={{ opacity: 0, y: 10, x: "-50%" }}
                 animate={{ opacity: 1, y: 0, x: "-50%" }}
                 exit={{ opacity: 0, y: 2, x: "-50%" }}
-                className="absolute -top-8 left-1/2 w-fit rounded-md border border-gray-200 bg-gray-100 px-2 py-0.5 text-xs whitespace-pre text-neutral-700 dark:border-neutral-900 dark:bg-neutral-800 dark:text-white"
+                className="absolute -top-8 left-1/2 w-fit rounded-md border border-white/10 bg-[#1a1a1a] px-2 py-0.5 text-xs whitespace-pre text-neutral-300"
               >
                 {title}
               </motion.div>

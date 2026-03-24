@@ -113,11 +113,12 @@ async def analyze_face(
     This extracts visual embeddings for character consistency
     in video generation. Costs 5 credits.
     """
-    # Deduct credits
+    # TESTING MODE: credit deduction disabled — re-enable by uncommenting below
+    # credit_cost = CREDIT_COSTS["face_analysis"]
+    # await subscription_service.deduct_credits(
+    #     db, current_user.id, credit_cost, "face_analysis"
+    # )
     credit_cost = CREDIT_COSTS["face_analysis"]
-    await subscription_service.deduct_credits(
-        db, current_user.id, credit_cost, "face_analysis"
-    )
 
     # Verify project access
     result = await db.execute(
@@ -225,12 +226,12 @@ async def generate_video(
 
     Costs 25 credits (standard) or 10 credits (fast).
     """
-    # Deduct credits
+    # TESTING MODE: credit deduction disabled — re-enable by uncommenting below
     operation_type = "video_generation_fast" if request.use_fast_model else "video_generation_standard"
     credit_cost = CREDIT_COSTS[operation_type]
-    await subscription_service.deduct_credits(
-        db, current_user.id, credit_cost, operation_type
-    )
+    # await subscription_service.deduct_credits(
+    #     db, current_user.id, credit_cost, operation_type
+    # )
 
     # Verify node exists and user has access
     result = await db.execute(
@@ -296,12 +297,12 @@ async def extend_video(
     Note: Extensions are limited to 720p and max 20 extensions.
     Costs 25 credits (standard) or 10 credits (fast).
     """
-    # Deduct credits (extensions currently use standard model)
+    # TESTING MODE: credit deduction disabled — re-enable by uncommenting below
     operation_type = "video_extension_standard"
     credit_cost = CREDIT_COSTS[operation_type]
-    await subscription_service.deduct_credits(
-        db, current_user.id, credit_cost, operation_type
-    )
+    # await subscription_service.deduct_credits(
+    #     db, current_user.id, credit_cost, operation_type
+    # )
 
     # Verify node exists and user has access
     result = await db.execute(

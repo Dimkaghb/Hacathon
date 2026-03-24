@@ -9,6 +9,10 @@ export function SubscriptionGate({ children }: { children: React.ReactNode }) {
     useSubscription();
   const { isAuthenticated } = useAuth();
 
+  // TESTING MODE: subscription gate disabled — re-enable by removing the early return below
+  return <>{children}</>;
+
+  // eslint-disable-next-line no-unreachable
   if (!isAuthenticated || loading) {
     return <>{children}</>;
   }
