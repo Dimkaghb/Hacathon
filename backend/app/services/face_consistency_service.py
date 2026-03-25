@@ -64,18 +64,16 @@ def _get_swapper():
                         settings.INSIGHTFACE_HOME, "models", "inswapper_128.onnx"
                     )
                     if not os.path.exists(model_path):
-                        # Let InsightFace download it
-                        os.makedirs(os.path.dirname(model_path), exist_ok=True)
-                        swapper = insightface.model_zoo.get_model(
-                            "inswapper_128.onnx",
-                            root=settings.INSIGHTFACE_HOME,
-                            providers=["CPUExecutionProvider"],
+                        logger.error(
+                            f"inswapper_128.onnx not found at {model_path}. "
+                            "Download it from GitHub releases and place it there."
                         )
-                    else:
-                        swapper = insightface.model_zoo.get_model(
-                            model_path,
-                            providers=["CPUExecutionProvider"],
-                        )
+                        raise FileNotFoundError(f"inswapper_128.onnx missing: {model_path}")
+                    # Load by absolute path — get_model("name", root=...) lookup is unreliable
+                    swapper = insightface.model_zoo.get_model(
+                        model_path,
+                        providers=["CPUExecutionProvider"],
+                    )
                     _swapper = swapper
                     logger.info("FaceConsistencyService: inswapper_128 loaded")
                 except Exception as e:

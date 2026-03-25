@@ -351,13 +351,23 @@ def generate_video(
         if setting_ctx:
             final_prompt += f"\n\nSetting: {setting_ctx}"
 
-    generation_type = "image-to-video" if image_url else "text-to-video"
+    # If no explicit image_url but character has a source image, use it for image-to-video.
+    # This is the most reliable way to pass the character's face to Veo — giving it the
+    # character's image as the first frame strongly anchors the generated video's appearance.
+    # The Veo reference_images config param only works on Vertex AI (not Gemini Developer API),
+    # so image-to-video is the primary character consistency mechanism on this tier.
+    effective_image_url = image_url
+    if not effective_image_url and primary_reference_image:
+        effective_image_url = primary_reference_image
+        logger.info(f"[character consistency] Using character image as i2v input: {primary_reference_image[:80]}")
+
+    generation_type = "image-to-video" if effective_image_url else "text-to-video"
 
     # Define the operation starter — passes reference images to Veo
     async def start_operation() -> str:
         return await veo_service.generate_video(
             prompt=final_prompt,
-            image_url=image_url,
+            image_url=effective_image_url,
             reference_images=character_source_images[:3] if character_source_images else None,
             resolution=resolution,
             aspect_ratio=aspect_ratio,

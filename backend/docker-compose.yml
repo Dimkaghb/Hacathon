@@ -87,6 +87,7 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
+      - INSIGHTFACE_HOME=/models/insightface
     env_file:
       - .env
     depends_on:
@@ -96,6 +97,7 @@ services:
     command: celery -A app.core.celery_app:celery_app worker -Q video -c 2 -l INFO --max-tasks-per-child=10
     volumes:
       - .:/app
+      - insightface_models:/models/insightface
     restart: unless-stopped
 
   # Celery worker for face analysis
@@ -109,6 +111,7 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
+      - INSIGHTFACE_HOME=/models/insightface
     env_file:
       - .env
     depends_on:
@@ -118,6 +121,7 @@ services:
     command: celery -A app.core.celery_app:celery_app worker -Q face,default -c 4 -l INFO --max-tasks-per-child=50
     volumes:
       - .:/app
+      - insightface_models:/models/insightface
     restart: unless-stopped
 
   # Flower - Celery monitoring dashboard
@@ -141,3 +145,4 @@ volumes:
   postgres_data:
   redis_data:
   qdrant_data:
+  insightface_models:

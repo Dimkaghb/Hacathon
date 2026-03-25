@@ -76,7 +76,7 @@ class Settings(BaseSettings):
 
     # InsightFace
     INSIGHTFACE_HOME: str = "/tmp/insightface_models"
-    ENABLE_FACE_CONSISTENCY: bool = True  # Post-gen face swap via InsightFace
+    ENABLE_FACE_CONSISTENCY: bool = False  # Post-gen face swap — disabled (destroys expressions/motion)
 
     # Veo Configuration
     VEO_MODEL: str = "veo-3.1-generate-preview"
