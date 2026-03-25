@@ -1,7 +1,9 @@
 'use client';
 
 import * as React from 'react';
-import { useAnimation, type AnimationControls, type Variants } from 'motion/react';
+import { useAnimation, type Variants } from 'motion/react';
+
+type AnimationControls = ReturnType<typeof useAnimation>;
 
 type IconProps<T extends string = string> = {
   size?: number;
