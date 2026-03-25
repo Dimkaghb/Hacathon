@@ -309,7 +309,10 @@ def generate_video(
                     select(Character).where(Character.id == UUID(character_id))
                 ).scalar_one_or_none()
                 if char:
-                    if char.prompt_dna and not character_description:
+                    # Fallback chain: Qdrant → analysis_data → prompt_dna
+                    if not character_description and char.analysis_data:
+                        character_description = char.analysis_data.get("video_prompt_description")
+                    if not character_description and char.prompt_dna:
                         character_description = char.prompt_dna
                     if char.performance_style:
                         character_performance = format_performance(char.performance_style)

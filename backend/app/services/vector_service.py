@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import logging
 from typing import List, Dict, Any, Optional
 from qdrant_client import QdrantClient
@@ -85,7 +86,7 @@ class VectorService:
         loop = asyncio.get_event_loop()
 
         def _upsert():
-            point_id = abs(hash(id)) % (10**18)
+            point_id = int(hashlib.md5(id.encode()).hexdigest(), 16) % (10**18)
             self.client.upsert(
                 collection_name=settings.QDRANT_COLLECTION,
                 points=[
@@ -145,7 +146,7 @@ class VectorService:
         loop = asyncio.get_event_loop()
 
         def _get():
-            point_id = abs(hash(id)) % (10**18)
+            point_id = int(hashlib.md5(id.encode()).hexdigest(), 16) % (10**18)
             results = self.client.retrieve(
                 collection_name=settings.QDRANT_COLLECTION,
                 ids=[point_id],
@@ -168,7 +169,7 @@ class VectorService:
         loop = asyncio.get_event_loop()
 
         def _delete():
-            point_id = abs(hash(id)) % (10**18)
+            point_id = int(hashlib.md5(id.encode()).hexdigest(), 16) % (10**18)
             self.client.delete(
                 collection_name=settings.QDRANT_COLLECTION,
                 points_selector=[point_id],

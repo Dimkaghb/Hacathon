@@ -15,6 +15,9 @@ from app.models.user import User
 from app.models.character import Character
 from app.models.wardrobe_preset import WardrobePreset
 from app.models.subscription import Subscription
+from app.models.project import Project
+from app.models.node import Node, NodeStatus
+from app.models.job import Job, JobType, JobStatus
 from app.schemas.character import (
     CharacterLibraryCreate,
     CharacterLibraryUpdate,
@@ -27,12 +30,73 @@ from app.schemas.wardrobe_preset import (
 )
 from app.api.deps import get_current_user, require_active_subscription
 from app.services.subscription_service import subscription_service, CREDIT_COSTS
+from app.services.vector_service import vector_service
 from app.tasks.face_tasks import analyze_face as analyze_face_task
-from app.models.node import Node, NodeStatus
-from app.models.job import Job, JobType, JobStatus
 from app.schemas.ai import JobStatusResponse
 
 router = APIRouter()
+
+
+# ── Helpers ──────────────────────────────────────────────────────────────────
+
+async def _dispatch_face_analysis(
+    db: AsyncSession,
+    character: Character,
+    user_id: UUID,
+    image_url: str,
+) -> None:
+    """
+    Create a tracking job+node and dispatch the face analysis Celery task.
+
+    Requires at least one project to exist for the user (for job/node tracking).
+    Silently skips if no project is found so character creation never fails.
+    """
+    proj_result = await db.execute(
+        select(Project).where(Project.user_id == user_id).limit(1)
+    )
+    project = proj_result.scalar_one_or_none()
+    if not project:
+        return  # No project to attach the tracking node to — skip silently
+
+    node = Node(
+        project_id=project.id,
+        type="image",
+        character_id=character.id,
+        data={"image_url": image_url},
+        status=NodeStatus.PROCESSING,
+    )
+    db.add(node)
+    await db.flush()  # Get node.id without committing outer transaction
+
+    job = Job(
+        node_id=node.id,
+        type=JobType.FACE_ANALYSIS,
+        status=JobStatus.PENDING,
+    )
+    db.add(job)
+    await db.flush()
+
+    await db.commit()
+
+    analyze_face_task.delay(
+        job_id=str(job.id),
+        node_id=str(node.id),
+        project_id=str(project.id),
+        character_id=str(character.id),
+        image_url=image_url,
+        user_id=str(user_id),
+        credit_cost=0,  # Auto-analysis is free; manual re-analysis charges credits
+    )
+
+
+def _primary_image_url(source_images: list) -> str | None:
+    """Extract the primary (or first) image URL from source_images list."""
+    for img in source_images:
+        if img.get("is_primary"):
+            return img.get("url")
+    if source_images:
+        return source_images[0].get("url")
+    return None
 
 
 # ── Character CRUD ──────────────────────────────────────────────────────────
@@ -58,15 +122,14 @@ async def create_character(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Create a new character in the user's library."""
-    # Get primary image URL from source_images
-    primary_url = None
-    for img in data.source_images:
-        if img.get("is_primary"):
-            primary_url = img.get("url")
-            break
-    if not primary_url and data.source_images:
-        primary_url = data.source_images[0].get("url")
+    """
+    Create a new character in the user's library.
+
+    If source_images are provided, face analysis is automatically dispatched
+    (free of charge) so the ArcFace embedding is ready before the first
+    video generation.
+    """
+    primary_url = _primary_image_url(data.source_images)
 
     character = Character(
         user_id=current_user.id,
@@ -81,7 +144,13 @@ async def create_character(
     await db.commit()
     await db.refresh(character)
 
-    # Load wardrobe_presets relationship for response
+    # Auto-analyze face if an image was provided
+    if primary_url:
+        try:
+            await _dispatch_face_analysis(db, character, current_user.id, primary_url)
+        except Exception:
+            pass  # Never let analysis dispatch failure break character creation
+
     result = await db.execute(
         select(Character)
         .options(selectinload(Character.wardrobe_presets))
@@ -115,7 +184,12 @@ async def update_character(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Update character details."""
+    """
+    Update character details.
+
+    If source_images change, face analysis is automatically re-dispatched
+    to update the ArcFace embedding in Qdrant.
+    """
     result = await db.execute(
         select(Character)
         .options(selectinload(Character.wardrobe_presets))
@@ -125,20 +199,16 @@ async def update_character(
     if not character:
         raise HTTPException(status_code=404, detail="Character not found")
 
+    images_changed = False
+
     if data.name is not None:
         character.name = data.name
     if data.prompt_dna is not None:
         character.prompt_dna = data.prompt_dna
     if data.source_images is not None:
+        images_changed = True
         character.source_images = data.source_images
-        # Update legacy field
-        primary_url = None
-        for img in data.source_images:
-            if img.get("is_primary"):
-                primary_url = img.get("url")
-                break
-        if not primary_url and data.source_images:
-            primary_url = data.source_images[0].get("url")
+        primary_url = _primary_image_url(data.source_images)
         character.source_image_url = primary_url
     if data.voice_profile is not None:
         character.voice_profile = data.voice_profile
@@ -149,6 +219,16 @@ async def update_character(
 
     await db.commit()
     await db.refresh(character)
+
+    # Re-analyze if images were updated
+    if images_changed and character.source_image_url:
+        try:
+            await _dispatch_face_analysis(
+                db, character, current_user.id, character.source_image_url
+            )
+        except Exception:
+            pass
+
     return character
 
 
@@ -158,7 +238,7 @@ async def delete_character(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Delete a character from the library."""
+    """Delete a character from the library and remove its Qdrant embedding."""
     result = await db.execute(
         select(Character).where(
             Character.id == character_id, Character.user_id == current_user.id
@@ -168,11 +248,18 @@ async def delete_character(
     if not character:
         raise HTTPException(status_code=404, detail="Character not found")
 
+    # Clean up Qdrant embedding before deleting from DB
+    if character.embedding_id:
+        try:
+            await vector_service.delete_embedding(str(character_id))
+        except Exception:
+            pass  # Don't block deletion if Qdrant cleanup fails
+
     await db.delete(character)
     await db.commit()
 
 
-# ── Face Analysis ───────────────────────────────────────────────────────────
+# ── Face Analysis (manual trigger) ──────────────────────────────────────────
 
 @router.post("/{character_id}/analyze", response_model=JobStatusResponse)
 async def analyze_character_face(
@@ -181,7 +268,11 @@ async def analyze_character_face(
     subscription: Subscription = Depends(require_active_subscription),
     db: AsyncSession = Depends(get_db),
 ):
-    """Run face analysis on a character. Costs 5 credits."""
+    """
+    Manually trigger face analysis on a character. Costs 5 credits.
+
+    Use this to re-analyze after changing photos or if auto-analysis failed.
+    """
     result = await db.execute(
         select(Character).where(
             Character.id == character_id, Character.user_id == current_user.id
@@ -203,18 +294,13 @@ async def analyze_character_face(
     #     db, current_user.id, credit_cost, "face_analysis"
     # )
 
-    # Need a project to create the placeholder node — use user's first project
-    from sqlalchemy import select as sa_select
-    from app.models.project import Project
-
     proj_result = await db.execute(
-        sa_select(Project).where(Project.user_id == current_user.id).limit(1)
+        select(Project).where(Project.user_id == current_user.id).limit(1)
     )
     project = proj_result.scalar_one_or_none()
     if not project:
         raise HTTPException(status_code=400, detail="No project found for face analysis node")
 
-    # Create placeholder node
     node = Node(
         project_id=project.id,
         type="image",
@@ -226,7 +312,6 @@ async def analyze_character_face(
     await db.commit()
     await db.refresh(node)
 
-    # Create job
     job = Job(
         node_id=node.id,
         type=JobType.FACE_ANALYSIS,
@@ -236,7 +321,6 @@ async def analyze_character_face(
     await db.commit()
     await db.refresh(job)
 
-    # Dispatch task
     analyze_face_task.delay(
         job_id=str(job.id),
         node_id=str(node.id),
