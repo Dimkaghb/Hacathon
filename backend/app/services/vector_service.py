@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from typing import List, Dict, Any, Optional
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
@@ -11,6 +12,11 @@ from qdrant_client.models import (
 )
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
+
+# InsightFace ArcFace produces 512-dimensional embeddings
+FACE_EMBEDDING_DIM = 512
 
 
 class VectorService:
@@ -27,13 +33,7 @@ class VectorService:
             )
         return self._client
 
-    async def _ensure_collection(self, vector_size: int = 768):
-        """
-        Ensure the collection exists with proper configuration.
-
-        Args:
-            vector_size: Dimension of vectors (768 for text-embedding-004)
-        """
+    async def _ensure_collection(self, vector_size: int = FACE_EMBEDDING_DIM):
         if self._collection_initialized:
             return
 
@@ -47,10 +47,29 @@ class VectorService:
                 self.client.create_collection(
                     collection_name=settings.QDRANT_COLLECTION,
                     vectors_config=VectorParams(
-                        size=vector_size,  # text-embedding-004 dimension
+                        size=vector_size,
                         distance=Distance.COSINE,
                     ),
                 )
+                logger.info(f"Created Qdrant collection '{settings.QDRANT_COLLECTION}' dim={vector_size}")
+            else:
+                # Check existing collection dimension — recreate if mismatched
+                info = self.client.get_collection(settings.QDRANT_COLLECTION)
+                existing_size = info.config.params.vectors.size
+                if existing_size != vector_size:
+                    logger.warning(
+                        f"Qdrant collection dim mismatch: existing={existing_size}, "
+                        f"required={vector_size}. Recreating collection."
+                    )
+                    self.client.delete_collection(settings.QDRANT_COLLECTION)
+                    self.client.create_collection(
+                        collection_name=settings.QDRANT_COLLECTION,
+                        vectors_config=VectorParams(
+                            size=vector_size,
+                            distance=Distance.COSINE,
+                        ),
+                    )
+                    logger.info(f"Recreated collection with dim={vector_size}")
 
         await loop.run_in_executor(None, _init)
         self._collection_initialized = True
@@ -61,25 +80,12 @@ class VectorService:
         vector: List[float],
         metadata: Dict[str, Any],
     ) -> str:
-        """
-        Insert or update an embedding in the vector database.
-
-        Args:
-            id: Unique identifier for the embedding
-            vector: Embedding vector
-            metadata: Associated metadata
-
-        Returns:
-            The embedding ID
-        """
-        await self._ensure_collection()
+        await self._ensure_collection(len(vector))
 
         loop = asyncio.get_event_loop()
 
         def _upsert():
-            # Convert string ID to integer hash for Qdrant
             point_id = abs(hash(id)) % (10**18)
-
             self.client.upsert(
                 collection_name=settings.QDRANT_COLLECTION,
                 points=[
@@ -101,33 +107,17 @@ class VectorService:
         score_threshold: float = 0.7,
         filter_conditions: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
-        """
-        Search for similar vectors.
-
-        Args:
-            vector: Query vector
-            limit: Maximum number of results
-            score_threshold: Minimum similarity score
-            filter_conditions: Optional metadata filters
-
-        Returns:
-            List of results with scores and metadata
-        """
-        await self._ensure_collection()
+        await self._ensure_collection(len(vector))
 
         loop = asyncio.get_event_loop()
 
         def _search():
             query_filter = None
             if filter_conditions:
-                conditions = []
-                for key, value in filter_conditions.items():
-                    conditions.append(
-                        FieldCondition(
-                            key=key,
-                            match=MatchValue(value=value),
-                        )
-                    )
+                conditions = [
+                    FieldCondition(key=k, match=MatchValue(value=v))
+                    for k, v in filter_conditions.items()
+                ]
                 query_filter = Filter(must=conditions)
 
             results = self.client.search(
@@ -150,15 +140,6 @@ class VectorService:
         return await loop.run_in_executor(None, _search)
 
     async def get_embedding(self, id: str) -> Optional[Dict[str, Any]]:
-        """
-        Get an embedding by ID.
-
-        Args:
-            id: Embedding ID
-
-        Returns:
-            Embedding data with vector and metadata, or None
-        """
         await self._ensure_collection()
 
         loop = asyncio.get_event_loop()
@@ -170,7 +151,6 @@ class VectorService:
                 ids=[point_id],
                 with_vectors=True,
             )
-
             if results:
                 point = results[0]
                 return {
@@ -183,15 +163,6 @@ class VectorService:
         return await loop.run_in_executor(None, _get)
 
     async def delete_embedding(self, id: str) -> bool:
-        """
-        Delete an embedding by ID.
-
-        Args:
-            id: Embedding ID
-
-        Returns:
-            True if deleted
-        """
         await self._ensure_collection()
 
         loop = asyncio.get_event_loop()
@@ -207,12 +178,6 @@ class VectorService:
         return await loop.run_in_executor(None, _delete)
 
     async def count_embeddings(self) -> int:
-        """
-        Get the total count of embeddings in the collection.
-
-        Returns:
-            Number of embeddings
-        """
         await self._ensure_collection()
 
         loop = asyncio.get_event_loop()

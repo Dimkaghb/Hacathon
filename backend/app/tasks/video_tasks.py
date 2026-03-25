@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from app.core.celery_app import celery_app
 from app.services.veo_service import veo_service
 from app.services.face_service import face_service
+from app.services.face_consistency_service import face_consistency_service
 from app.models.node import Node, NodeStatus
 from app.models.job import Job, JobStatus
 from app.config import settings
@@ -97,6 +98,7 @@ def _execute_video_operation(
     operation_label: str,
     build_result_data: Callable[[Dict], Dict[str, Any]],
     credit_refund_info: Optional[Dict[str, Any]] = None,
+    post_process: Optional[Callable] = None,  # async (video_result: Dict) -> Dict
 ) -> Dict[str, Any]:
     """
     Execute a video operation lifecycle: start, poll, download, and update status.
@@ -161,6 +163,13 @@ def _execute_video_operation(
                         select_best=True,
                     )
                 )
+
+                # Optional post-processing (e.g. InsightFace face consistency)
+                if post_process:
+                    try:
+                        video_result = loop.run_until_complete(post_process(video_result))
+                    except Exception as pp_err:
+                        logger.warning(f"Post-processing failed (using original): {pp_err}")
 
                 # Build final result using provided builder
                 result_data = build_result_data(video_result)
@@ -265,8 +274,11 @@ def generate_video(
     update_job_status_sync(job_id, JobStatus.PROCESSING, progress=0)
     update_node_status_sync(node_id, NodeStatus.PROCESSING)
 
-    # Load character description if provided (before starting the operation)
+    # Load character data from Qdrant + DB
     character_description = None
+    character_source_images: list = []  # Used as Veo reference_images + InsightFace source
+    primary_reference_image: Optional[str] = None  # Primary image for InsightFace face swap
+
     if character_id:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -275,7 +287,7 @@ def generate_video(
                 face_service.get_character_description(character_id)
             )
         except Exception as e:
-            logger.warning(f"Failed to load character: {e}")
+            logger.warning(f"Failed to load character description from Qdrant: {e}")
         finally:
             loop.close()
 
@@ -302,6 +314,23 @@ def generate_video(
                     if char.performance_style:
                         character_performance = format_performance(char.performance_style)
 
+                    # Collect source image URLs for Veo reference images + face swap
+                    if char.source_images:
+                        for img_entry in char.source_images:
+                            url = img_entry.get("url") if isinstance(img_entry, dict) else img_entry
+                            if url:
+                                # Primary image first (is_primary flag or first in list)
+                                if isinstance(img_entry, dict) and img_entry.get("is_primary"):
+                                    character_source_images.insert(0, url)
+                                else:
+                                    character_source_images.append(url)
+                    elif char.source_image_url:
+                        # Legacy single image field
+                        character_source_images.append(char.source_image_url)
+
+                    if character_source_images:
+                        primary_reference_image = character_source_images[0]
+
     # Build enriched prompt with all context
     final_prompt = prompt
     if character_description:
@@ -321,11 +350,12 @@ def generate_video(
 
     generation_type = "image-to-video" if image_url else "text-to-video"
 
-    # Define the operation starter
+    # Define the operation starter — passes reference images to Veo
     async def start_operation() -> str:
         return await veo_service.generate_video(
             prompt=final_prompt,
             image_url=image_url,
+            reference_images=character_source_images[:3] if character_source_images else None,
             resolution=resolution,
             aspect_ratio=aspect_ratio,
             duration=duration,
@@ -336,6 +366,31 @@ def generate_video(
             enhance_prompt=True,
             character_description=None,  # Already baked into final_prompt
         )
+
+    # Post-processing: InsightFace face swap to enforce identity
+    async def apply_face_consistency(video_result: Dict) -> Dict:
+        if not primary_reference_image:
+            return video_result
+        if not settings.ENABLE_FACE_CONSISTENCY:
+            return video_result
+
+        video_url_out = video_result.get("video_url", "")
+        if not video_url_out:
+            return video_result
+
+        new_url = await face_consistency_service.apply_face_consistency(
+            video_url=video_url_out,
+            reference_image_url=primary_reference_image,
+            job_id=job_id,
+            project_id=project_id,
+        )
+
+        # Update video_url in result and all_videos list
+        video_result["video_url"] = new_url
+        all_vids = video_result.get("all_videos", [])
+        if all_vids:
+            all_vids[0]["video_url"] = new_url
+        return video_result
 
     # Define result builder
     def build_result(video_result: Dict) -> Dict[str, Any]:
@@ -369,6 +424,7 @@ def generate_video(
         operation_label="Generating",
         build_result_data=build_result,
         credit_refund_info=credit_refund_info,
+        post_process=apply_face_consistency if primary_reference_image else None,
     )
 
 

@@ -189,6 +189,10 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
 
   // Debounce timers
   const positionUpdateTimers = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  // Debounce timers for node data updates (text inputs)
+  const nodeUpdateTimers = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  // Accumulated pending data per node (merged across keystrokes before the debounce fires)
+  const pendingNodeData = useRef<Map<string, Record<string, any>>>(new Map());
 
   const [loading, setLoading] = useState(true);
   const [showComingSoon, setShowComingSoon] = useState(false);
@@ -418,6 +422,75 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
     );
   }, []);
 
+  // Handle node field updates from node components (text inputs, selects, etc.)
+  // Debounced: updates the ref immediately (so connected nodes read fresh data),
+  // then batches state update + API call 500 ms after the last keystroke.
+  const handleNodeUpdate = useCallback((nodeId: string, data: Record<string, any>) => {
+    // 1. Merge into pending data immediately
+    const prev = pendingNodeData.current.get(nodeId) || {};
+    const merged = { ...prev, ...data };
+    pendingNodeData.current.set(nodeId, merged);
+
+    // 2. Update the ref right away so getConnectedData reads fresh values (e.g. for video gen)
+    backendNodesRef.current = backendNodesRef.current.map(n =>
+      n.id === nodeId ? { ...n, data: { ...n.data, ...merged } } : n
+    );
+
+    // 3. Debounce the expensive parts: React state updates + API call
+    const existing = nodeUpdateTimers.current.get(nodeId);
+    if (existing) clearTimeout(existing);
+
+    const timer = setTimeout(async () => {
+      const finalData = pendingNodeData.current.get(nodeId);
+      if (!finalData) return;
+      pendingNodeData.current.delete(nodeId);
+      nodeUpdateTimers.current.delete(nodeId);
+
+      // Snapshot of nodes from ref (already has the latest merged data)
+      const latestNodes = backendNodesRef.current;
+
+      // Update React state once (one re-render instead of one per keystroke)
+      setBackendNodes([...latestNodes]);
+      setNodes(nds => {
+        let updated = nds.map(n =>
+          n.id === nodeId
+            ? { ...n, data: { ...n.data, data: { ...(n.data?.data || {}), ...finalData } } }
+            : n
+        );
+
+        // Propagate to connected video/extension nodes
+        const affectedConnections = backendConnectionsRef.current.filter(c => c.source_node_id === nodeId);
+        for (const connection of affectedConnections) {
+          const targetNode = latestNodes.find(n => n.id === connection.target_node_id);
+          if (targetNode && (targetNode.type === 'video' || targetNode.type === 'extension')) {
+            const connectedData = getConnectedData(connection.target_node_id, latestNodes, backendConnectionsRef.current);
+            updated = updated.map(n => {
+              if (n.id !== connection.target_node_id) return n;
+              if (n.type === 'video') {
+                return { ...n, data: { ...n.data, connectedPrompt: connectedData.prompt, connectedImageUrl: connectedData.imageUrl } };
+              }
+              if (n.type === 'extension') {
+                return { ...n, data: { ...n.data, connectedPrompt: connectedData.prompt, connectedVideo: connectedData.videoData } };
+              }
+              return n;
+            });
+          }
+        }
+
+        return updated;
+      });
+
+      // Single API call after the user stops typing
+      try {
+        await nodesApi.update(projectId, nodeId, { data: finalData }, shareTokenRef.current);
+      } catch (error) {
+        console.error('Failed to save node:', error);
+      }
+    }, 500);
+
+    nodeUpdateTimers.current.set(nodeId, timer);
+  }, [projectId]);
+
   // Update node data in both backend and React Flow state
   const updateNodeData = useCallback((
     nodeId: string,
@@ -616,6 +689,7 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
     return () => {
       jobPollingRef.current.forEach(timeout => clearTimeout(timeout));
       positionUpdateTimers.current.forEach(timeout => clearTimeout(timeout));
+      nodeUpdateTimers.current.forEach(timeout => clearTimeout(timeout));
     };
   }, []);
 
@@ -823,55 +897,6 @@ export default function ReactFlowCanvas({ projectId, shareToken }: ReactFlowCanv
     }
   };
 
-  // Handle node update
-  const handleNodeUpdate = async (nodeId: string, data: Record<string, any>) => {
-    try {
-      await nodesApi.update(projectId, nodeId, { data }, shareToken);
-
-      // Calculate updated nodes first
-      const updatedNodes = backendNodes.map(n => 
-        n.id === nodeId ? { ...n, data: { ...n.data, ...data } } : n
-      );
-      
-      // Update backend state
-      setBackendNodes(updatedNodes);
-
-      // Update React Flow state with connected data recalculated
-      setNodes(nds => {
-        // First update the changed node
-        let updated = nds.map(n =>
-          n.id === nodeId ? { ...n, data: { ...n.data, data: { ...(n.data?.data || {}), ...data } } } : n
-        );
-        
-        // Then update any video/extension nodes connected to this source
-        const affectedConnections = backendConnections.filter(c => c.source_node_id === nodeId);
-        console.log('[handleNodeUpdate] Node:', nodeId, 'Affected connections:', affectedConnections.length);
-        
-        for (const connection of affectedConnections) {
-          const targetNode = updatedNodes.find(n => n.id === connection.target_node_id);
-          if (targetNode && (targetNode.type === 'video' || targetNode.type === 'extension')) {
-            const connectedData = getConnectedData(connection.target_node_id, updatedNodes, backendConnections);
-            console.log('[handleNodeUpdate] Updating target node:', connection.target_node_id, 'with:', connectedData);
-            
-            updated = updated.map(n => {
-              if (n.id !== connection.target_node_id) return n;
-              if (n.type === 'video') {
-                return { ...n, data: { ...n.data, connectedPrompt: connectedData.prompt, connectedImageUrl: connectedData.imageUrl } };
-              }
-              if (n.type === 'extension') {
-                return { ...n, data: { ...n.data, connectedPrompt: connectedData.prompt, connectedVideo: connectedData.videoData } };
-              }
-              return n;
-            });
-          }
-        }
-        
-        return updated;
-      });
-    } catch (error) {
-      console.error('Failed to update node:', error);
-    }
-  };
 
   // Handle node delete
   const handleNodeDelete = async (nodeId: string) => {

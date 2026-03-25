@@ -4,7 +4,7 @@ Video Generation Worker
 Handles async video generation jobs with:
 - Proper image-to-video support
 - Character consistency via face descriptions
-- Progress tracking and WebSocket updates
+- Progress tracking via database polling
 - Error handling with useful feedback
 """
 import asyncio
@@ -55,8 +55,9 @@ class VideoGenerationWorker(BaseWorker):
         # Step 1: Get character description for consistency
         character_description = None
         if character_id:
-            await self.broadcast_progress(
-                project_id, node_id, 2, "processing", "Loading character data..."
+            await self.update_job_status(
+                job_id, JobStatus.PROCESSING, progress=2,
+                progress_message="Loading character data...", stage="processing"
             )
             try:
                 character_description = await face_service.get_character_description(character_id)
@@ -66,8 +67,9 @@ class VideoGenerationWorker(BaseWorker):
                 logger.warning(f"Failed to load character description: {e}")
 
         # Step 2: Start generation
-        await self.broadcast_progress(
-            project_id, node_id, 5, "processing", "Starting video generation..."
+        await self.update_job_status(
+            job_id, JobStatus.PROCESSING, progress=5,
+            progress_message="Starting video generation...", stage="processing"
         )
 
         generation_type = "image-to-video" if image_url else "text-to-video"
@@ -93,19 +95,14 @@ class VideoGenerationWorker(BaseWorker):
                 raise Exception(f"Content blocked by safety filters. Try modifying your prompt to avoid potentially sensitive content.")
             raise
 
-            # Update job with operation ID
-            await self.update_job_status(
-                job_id, 
-                JobStatus.PROCESSING, 
-                progress=10, 
-                operation_id=operation_id,
-                progress_message=f"Video generation started (Operation ID: {operation_id[:20]}...)",
-                stage="generating"
-            )
-
-        await self.broadcast_progress(
-            project_id, node_id, 10, "processing",
-            f"Video generation in progress ({generation_type})..."
+        # Update job with operation ID
+        await self.update_job_status(
+            job_id,
+            JobStatus.PROCESSING,
+            progress=10,
+            operation_id=operation_id,
+            progress_message=f"Video generation in progress ({generation_type})...",
+            stage="generating"
         )
 
         # Step 3: Poll until complete with better progress estimation
@@ -131,8 +128,9 @@ class VideoGenerationWorker(BaseWorker):
                         raise Exception(f"Video generation failed: {error_msg}")
 
                 # Step 4: Download and store video
-                await self.broadcast_progress(
-                    project_id, node_id, 85, "processing", "Downloading video..."
+                await self.update_job_status(
+                    job_id, JobStatus.PROCESSING, progress=85,
+                    progress_message="Downloading video...", stage="downloading"
                 )
 
                 video_id = str(uuid4())
@@ -144,8 +142,9 @@ class VideoGenerationWorker(BaseWorker):
                     select_best=True,
                 )
 
-                await self.broadcast_progress(
-                    project_id, node_id, 95, "processing", "Finalizing..."
+                await self.update_job_status(
+                    job_id, JobStatus.PROCESSING, progress=95,
+                    progress_message="Finalizing...", stage="finalizing"
                 )
 
                 logger.info(f"Video generation complete for job {job_id}")
@@ -174,8 +173,6 @@ class VideoGenerationWorker(BaseWorker):
             # Progress from 10% to 80% over polling period
             progress = min(10 + int(poll_count * 70 / max_polls), 80)
 
-            await self.update_job_status(job_id, JobStatus.PROCESSING, progress=progress)
-
             # Update message based on progress
             if progress < 30:
                 message = "Analyzing prompt and preparing generation..."
@@ -186,8 +183,9 @@ class VideoGenerationWorker(BaseWorker):
             else:
                 message = "Finalizing generation..."
 
-            await self.broadcast_progress(
-                project_id, node_id, progress, "processing", message
+            await self.update_job_status(
+                job_id, JobStatus.PROCESSING, progress=progress,
+                progress_message=message, stage="generating"
             )
 
             await asyncio.sleep(settings.VEO_POLL_INTERVAL)

@@ -4,7 +4,7 @@ Video Extension Worker
 Handles async video extension jobs with:
 - Proper video continuation using Veo API
 - Temporal consistency preservation
-- Progress tracking and WebSocket updates
+- Progress tracking via database polling
 """
 import asyncio
 import logging
@@ -51,8 +51,9 @@ class VideoExtensionWorker(BaseWorker):
             raise Exception("Maximum extension limit (20) reached. Cannot extend further.")
 
         # Step 1: Start extension
-        await self.broadcast_progress(
-            project_id, node_id, 5, "processing", "Starting video extension..."
+        await self.update_job_status(
+            job_id, JobStatus.PROCESSING, progress=5,
+            progress_message="Starting video extension...", stage="processing"
         )
 
         logger.info(f"Starting video extension for job {job_id}, extension #{extension_count}")
@@ -73,12 +74,10 @@ class VideoExtensionWorker(BaseWorker):
 
         # Update job with operation ID
         await self.update_job_status(
-            job_id, JobStatus.PROCESSING, progress=10, operation_id=operation_id
-        )
-
-        await self.broadcast_progress(
-            project_id, node_id, 10, "processing",
-            f"Extending video (extension #{extension_count})..."
+            job_id, JobStatus.PROCESSING, progress=10,
+            operation_id=operation_id,
+            progress_message=f"Extending video (extension #{extension_count})...",
+            stage="extending"
         )
 
         # Step 2: Poll until complete
@@ -99,8 +98,9 @@ class VideoExtensionWorker(BaseWorker):
                         raise Exception(f"Video extension failed: {error_msg}")
 
                 # Step 3: Download and store video
-                await self.broadcast_progress(
-                    project_id, node_id, 85, "processing", "Downloading extended video..."
+                await self.update_job_status(
+                    job_id, JobStatus.PROCESSING, progress=85,
+                    progress_message="Downloading extended video...", stage="downloading"
                 )
 
                 video_id = str(uuid4())
@@ -112,8 +112,9 @@ class VideoExtensionWorker(BaseWorker):
                     select_best=True,
                 )
 
-                await self.broadcast_progress(
-                    project_id, node_id, 95, "processing", "Finalizing..."
+                await self.update_job_status(
+                    job_id, JobStatus.PROCESSING, progress=95,
+                    progress_message="Finalizing...", stage="finalizing"
                 )
 
                 # Calculate total duration (original + extension)
@@ -142,8 +143,6 @@ class VideoExtensionWorker(BaseWorker):
             poll_count += 1
             progress = min(10 + int(poll_count * 70 / max_polls), 80)
 
-            await self.update_job_status(job_id, JobStatus.PROCESSING, progress=progress)
-
             # Update message based on progress
             if progress < 30:
                 message = "Analyzing source video..."
@@ -154,8 +153,9 @@ class VideoExtensionWorker(BaseWorker):
             else:
                 message = "Finalizing extension..."
 
-            await self.broadcast_progress(
-                project_id, node_id, progress, "processing", message
+            await self.update_job_status(
+                job_id, JobStatus.PROCESSING, progress=progress,
+                progress_message=message, stage="extending"
             )
 
             await asyncio.sleep(settings.VEO_POLL_INTERVAL)

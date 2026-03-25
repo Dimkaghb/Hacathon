@@ -21,6 +21,12 @@ flower==2.0.1  # Celery monitoring
 # Vector database
 qdrant-client==1.12.1
 
+# Face embedding & consistency
+insightface>=0.7.3
+onnxruntime>=1.16.0
+opencv-python-headless>=4.8.0
+numpy>=1.24.0
+
 # Google Cloud and AI
 google-cloud-storage==2.19.0
 

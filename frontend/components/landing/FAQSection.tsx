@@ -27,7 +27,7 @@ export default function FAQSection() {
     },
     {
       question: "How long does generation take?",
-      answer: "Video generation typically takes between 10 seconds to 6 minutes, depending on the resolution and complexity. You'll see real-time progress updates through our WebSocket connection.",
+      answer: "Video generation typically takes between 10 seconds to 6 minutes, depending on the resolution and complexity. You'll see real-time progress updates directly in the canvas.",
     },
     {
       question: "Is there character consistency?",

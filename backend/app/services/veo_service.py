@@ -196,6 +196,7 @@ class VeoService:
         self,
         prompt: str,
         image_url: Optional[str] = None,
+        reference_images: Optional[List[str]] = None,
         resolution: str = "720p",
         aspect_ratio: str = "16:9",
         duration: int = 8,
@@ -214,6 +215,8 @@ class VeoService:
         Args:
             prompt: Text description of the video to generate
             image_url: Optional source image for image-to-video generation
+            reference_images: Up to 3 character reference image URLs for
+                              Veo's native "Ingredients to Video" consistency
             resolution: Video resolution (720p, 1080p, 4k)
             aspect_ratio: Video aspect ratio (16:9, 9:16, 1:1)
             duration: Video duration in seconds (4, 6, or 8)
@@ -240,6 +243,21 @@ class VeoService:
             final_prompt = self._enhance_prompt_for_veo(final_prompt)
 
         logger.info(f"Starting video generation with prompt: {final_prompt[:100]}...")
+
+        # Load reference images for Veo native character consistency
+        # (Veo 3.1 "Ingredients to Video" — up to 3 asset reference images)
+        ref_image_objects: List[types.Image] = []
+        if reference_images:
+            for ref_url in reference_images[:3]:
+                try:
+                    ref_bytes = await self._load_image_bytes(ref_url)
+                    mime = self._get_mime_type(ref_url)
+                    ref_image_objects.append(types.Image(image_bytes=ref_bytes, mime_type=mime))
+                except Exception as e:
+                    logger.warning(f"Failed to load reference image {ref_url}: {e}")
+
+            if ref_image_objects:
+                logger.info(f"Loaded {len(ref_image_objects)} reference image(s) for character consistency")
 
         # Build configuration
         # Note: person_generation="allow_adult" is not supported on Gemini API tier
@@ -280,27 +298,90 @@ class VeoService:
                 mime_type=mime_type,
             )
 
-            operation = await loop.run_in_executor(
-                None,
-                lambda: self.client.models.generate_videos(
-                    model=model,
-                    prompt=final_prompt,
-                    image=image,
-                    config=config,
-                ),
-            )
+            # Try with reference images first; fall back without if API rejects them
+            if ref_image_objects:
+                ref_config = types.GenerateVideosConfig(
+                    resolution=resolution,
+                    aspect_ratio=aspect_ratio,
+                    duration_seconds=str(duration),
+                    negative_prompt=negative_prompt,
+                    number_of_videos=num_videos,
+                    reference_images=ref_image_objects,
+                )
+                try:
+                    operation = await loop.run_in_executor(
+                        None,
+                        lambda: self.client.models.generate_videos(
+                            model=model,
+                            prompt=final_prompt,
+                            image=image,
+                            config=ref_config,
+                        ),
+                    )
+                    logger.info("Image-to-video with reference images succeeded")
+                except Exception as e:
+                    logger.warning(f"reference_images not supported by API, retrying without: {e}")
+                    operation = await loop.run_in_executor(
+                        None,
+                        lambda: self.client.models.generate_videos(
+                            model=model,
+                            prompt=final_prompt,
+                            image=image,
+                            config=config,
+                        ),
+                    )
+            else:
+                operation = await loop.run_in_executor(
+                    None,
+                    lambda: self.client.models.generate_videos(
+                        model=model,
+                        prompt=final_prompt,
+                        image=image,
+                        config=config,
+                    ),
+                )
         else:
             # TEXT-TO-VIDEO: Standard generation
             logger.info("Text-to-video generation")
 
-            operation = await loop.run_in_executor(
-                None,
-                lambda: self.client.models.generate_videos(
-                    model=model,
-                    prompt=final_prompt,
-                    config=config,
-                ),
-            )
+            if ref_image_objects:
+                ref_config = types.GenerateVideosConfig(
+                    resolution=resolution,
+                    aspect_ratio=aspect_ratio,
+                    duration_seconds=str(duration),
+                    negative_prompt=negative_prompt,
+                    number_of_videos=num_videos,
+                    reference_images=ref_image_objects,
+                )
+                try:
+                    operation = await loop.run_in_executor(
+                        None,
+                        lambda: self.client.models.generate_videos(
+                            model=model,
+                            prompt=final_prompt,
+                            config=ref_config,
+                        ),
+                    )
+                    logger.info("Text-to-video with reference images succeeded")
+                except Exception as e:
+                    logger.warning(f"reference_images not supported by API, retrying without: {e}")
+                    operation = await loop.run_in_executor(
+                        None,
+                        lambda: self.client.models.generate_videos(
+                            model=model,
+                            prompt=final_prompt,
+                            config=config,
+                        ),
+                    )
+            else:
+                operation = await loop.run_in_executor(
+                    None,
+                    lambda: self.client.models.generate_videos(
+                        model=model,
+                        prompt=final_prompt,
+                        config=config,
+                    ),
+                )
 
         # Validate operation was created
         if not operation or not hasattr(operation, "name") or not operation.name:

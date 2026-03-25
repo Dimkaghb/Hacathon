@@ -74,6 +74,10 @@ class Settings(BaseSettings):
     CREDITS_TRIAL: int = 50
     TRIAL_DAYS: int = 3
 
+    # InsightFace
+    INSIGHTFACE_HOME: str = "/tmp/insightface_models"
+    ENABLE_FACE_CONSISTENCY: bool = True  # Post-gen face swap via InsightFace
+
     # Veo Configuration
     VEO_MODEL: str = "veo-3.1-generate-preview"
     VEO_FAST_MODEL: str = "veo-3.1-fast-generate-preview"
