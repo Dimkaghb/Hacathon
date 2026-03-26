@@ -33,7 +33,7 @@ interface ABComparisonPanelProps {
   open: boolean;
   onClose: () => void;
   nodes: Node[];
-  onUpdateNode: (nodeId: string, data: Record<string, any>) => Promise<void>;
+  onUpdateNode: (nodeId: string, data: Record<string, any>) => void;
 }
 
 const ARM_LETTERS = ['A', 'B', 'C', 'D', 'E'];
