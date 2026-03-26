@@ -13,6 +13,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import select, create_engine
 from sqlalchemy.orm import Session
 
+from celery.exceptions import Reject
 from app.core.celery_app import celery_app
 from app.services.veo_service import veo_service
 from app.services.face_service import face_service
@@ -25,6 +26,11 @@ from app.services.prompt_service import build_product_context, build_setting_con
 from app.services.stitch_service import stitch_service
 
 logger = logging.getLogger(__name__)
+
+
+class SafetyBlockError(Exception):
+    """Non-retryable error for content blocked by safety filters."""
+    pass
 
 
 # Type alias for operation starter coroutine
@@ -89,6 +95,12 @@ def update_node_status_sync(
     return None
 
 
+def _is_safety_block(error_msg: str) -> bool:
+    """Check if an error message indicates a safety/content filter block."""
+    lower = error_msg.lower()
+    return any(kw in lower for kw in ["safety", "blocked", "rai_", "responsible ai", "safety_filter", "content policy"])
+
+
 def _execute_video_operation(
     celery_task,
     job_id: str,
@@ -99,6 +111,7 @@ def _execute_video_operation(
     build_result_data: Callable[[Dict], Dict[str, Any]],
     credit_refund_info: Optional[Dict[str, Any]] = None,
     post_process: Optional[Callable] = None,  # async (video_result: Dict) -> Dict
+    safety_fallback: Optional[OperationStarter] = None,  # fallback when safety-blocked
 ) -> Dict[str, Any]:
     """
     Execute a video operation lifecycle: start, poll, download, and update status.
@@ -127,11 +140,17 @@ def _execute_video_operation(
             operation_id = loop.run_until_complete(start_operation())
         except Exception as e:
             error_msg = str(e)
-            if "safety" in error_msg.lower() or "blocked" in error_msg.lower():
-                update_job_status_sync(job_id, JobStatus.FAILED, error="Content blocked by safety filters")
-                update_node_status_sync(node_id, NodeStatus.FAILED, error_message="Content blocked")
-                raise Exception("Content blocked by safety filters - will not retry")
-            raise
+            if _is_safety_block(error_msg):
+                if safety_fallback:
+                    logger.warning(f"Start blocked by safety, trying fallback for job {job_id}")
+                    operation_id = loop.run_until_complete(safety_fallback())
+                else:
+                    clean_msg = "Video generation was blocked by safety filters. Please modify your prompt and resubmit. You have not been charged."
+                    update_job_status_sync(job_id, JobStatus.FAILED, error=clean_msg)
+                    update_node_status_sync(node_id, NodeStatus.FAILED, error_message=clean_msg)
+                    raise SafetyBlockError(clean_msg)
+            else:
+                raise
 
         update_job_status_sync(job_id, JobStatus.PROCESSING, progress=10, operation_id=operation_id)
 
@@ -145,6 +164,22 @@ def _execute_video_operation(
             if result["done"]:
                 if result["error"]:
                     error_msg = result["error"]
+
+                    if _is_safety_block(error_msg):
+                        if safety_fallback:
+                            logger.warning(f"Poll result blocked by safety, trying fallback for job {job_id}")
+                            # Reset and restart with fallback
+                            safety_fallback_used = True
+                            operation_id = loop.run_until_complete(safety_fallback())
+                            safety_fallback = None  # Don't fallback twice
+                            poll_count = 0
+                            update_job_status_sync(job_id, JobStatus.PROCESSING, progress=5)
+                            continue
+                        clean_msg = "Video generation was blocked by safety filters. Please modify your prompt and resubmit. You have not been charged."
+                        update_job_status_sync(job_id, JobStatus.FAILED, error=clean_msg)
+                        update_node_status_sync(node_id, NodeStatus.FAILED, error_message=clean_msg)
+                        raise SafetyBlockError(clean_msg)
+
                     update_job_status_sync(job_id, JobStatus.FAILED, error=error_msg)
                     update_node_status_sync(node_id, NodeStatus.FAILED, error_message=error_msg)
 
@@ -152,17 +187,32 @@ def _execute_video_operation(
                         raise Exception(f"Rate limited: {error_msg}")  # Will retry
                     raise Exception(error_msg)
 
-                # Download video
+                # Download video (may raise ValueError if safety-filtered)
                 video_id = str(uuid4())
                 destination_path = f"videos/{project_id}/{video_id}"
 
-                video_result = loop.run_until_complete(
-                    veo_service.download_generated_video(
-                        operation_result=result["result"],
-                        destination_path=destination_path,
-                        select_best=True,
+                try:
+                    video_result = loop.run_until_complete(
+                        veo_service.download_generated_video(
+                            operation_result=result["result"],
+                            destination_path=destination_path,
+                            select_best=True,
+                        )
                     )
-                )
+                except (ValueError, Exception) as dl_err:
+                    if _is_safety_block(str(dl_err)):
+                        if safety_fallback:
+                            logger.warning(f"Download blocked by safety, trying fallback for job {job_id}")
+                            operation_id = loop.run_until_complete(safety_fallback())
+                            safety_fallback = None
+                            poll_count = 0
+                            update_job_status_sync(job_id, JobStatus.PROCESSING, progress=5)
+                            continue
+                        clean_msg = "Video generation was blocked by safety filters. Please modify your prompt and resubmit. You have not been charged."
+                        update_job_status_sync(job_id, JobStatus.FAILED, error=clean_msg)
+                        update_node_status_sync(node_id, NodeStatus.FAILED, error_message=clean_msg)
+                        raise SafetyBlockError(clean_msg)
+                    raise
 
                 # Optional post-processing (e.g. InsightFace face consistency)
                 if post_process:
@@ -196,6 +246,23 @@ def _execute_video_operation(
 
         # Timeout
         raise Exception(f"Video operation timed out after {settings.VEO_MAX_POLL_TIME}s")
+
+    except SafetyBlockError as e:
+        # Safety blocks are non-retryable — refund credits immediately
+        logger.warning(f"Video operation safety-blocked: {e}")
+        if credit_refund_info:
+            try:
+                refund_credits_sync(
+                    sync_engine=sync_engine,
+                    user_id=credit_refund_info["user_id"],
+                    amount=credit_refund_info["amount"],
+                    job_id=job_id,
+                    operation_type=credit_refund_info["operation_type"],
+                )
+            except Exception as refund_err:
+                logger.error(f"Failed to refund credits after safety block: {refund_err}")
+        # Use Reject to prevent Celery autoretry_for from catching this
+        raise Reject(str(e), requeue=False)
 
     except Exception as e:
         logger.error(f"Video operation failed: {e}")
@@ -482,19 +549,8 @@ def extend_video(
     update_job_status_sync(job_id, JobStatus.PROCESSING, progress=0)
     update_node_status_sync(node_id, NodeStatus.PROCESSING)
 
-    # Define the operation starter
-    async def start_operation() -> str:
-        return await veo_service.extend_video(
-            video_url=video_url,
-            prompt=prompt,
-            veo_video_uri=veo_video_uri,
-            veo_video_name=veo_video_name,
-            seed=seed,
-        )
-
     # Define result builder
     def build_result(video_result: Dict) -> Dict[str, Any]:
-        # Get Veo references for chained extensions
         all_videos = video_result.get("all_videos", [])
         new_veo_video_uri = all_videos[0].get("veo_video_uri") if all_videos else None
         new_veo_video_name = all_videos[0].get("veo_video_name") if all_videos else None
@@ -514,6 +570,26 @@ def extend_video(
     if user_id and credit_cost > 0:
         credit_refund_info = {"user_id": user_id, "amount": credit_cost, "operation_type": "video_extension_standard"}
 
+    async def start_operation() -> str:
+        return await veo_service.extend_video(
+            video_url=video_url,
+            prompt=prompt,
+            veo_video_uri=veo_video_uri,
+            veo_video_name=veo_video_name,
+            seed=seed,
+            use_fallback=False,
+        )
+
+    # Fallback for when native extension is blocked by safety filters
+    # (common for face-based i2v videos — Veo's deepfake prevention)
+    async def safety_fallback() -> str:
+        logger.warning(f"Native extension blocked by safety for job {job_id}, falling back to last-frame i2v")
+        return await veo_service.extend_video(
+            video_url=video_url,
+            prompt=prompt,
+            use_fallback=True,
+        )
+
     return _execute_video_operation(
         celery_task=self,
         job_id=job_id,
@@ -523,6 +599,7 @@ def extend_video(
         operation_label=f"Extending (#{extension_count})",
         build_result_data=build_result,
         credit_refund_info=credit_refund_info,
+        safety_fallback=safety_fallback,
     )
 
 
