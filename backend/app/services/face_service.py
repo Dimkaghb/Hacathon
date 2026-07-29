@@ -159,7 +159,7 @@ Return ONLY valid JSON, no additional text."""
         response = await loop.run_in_executor(
             None,
             lambda: client.models.generate_content(
-                model="gemini-2.0-flash",
+                model="gemini-3.5-flash",
                 contents=[
                     types.Content(
                         parts=[

@@ -121,7 +121,7 @@ Return ONLY the JSON array, no extra text."""
     response = await loop.run_in_executor(
         None,
         lambda: client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-3.5-flash",
             contents=[{"role": "user", "parts": [{"text": system_prompt}]}],
         ),
     )

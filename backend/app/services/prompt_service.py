@@ -63,7 +63,7 @@ SUGGESTIONS:
         response = await loop.run_in_executor(
             None,
             lambda: self.client.models.generate_content(
-                model="gemini-2.0-flash",
+                model="gemini-3.5-flash",
                 contents=[
                     {"role": "user", "parts": [{"text": system_prompt}]},
                     {"role": "user", "parts": [{"text": f"Original prompt: {prompt}"}]},
@@ -126,7 +126,7 @@ Return exactly {count} variations, one per line, prefixed with numbers (1., 2., 
         response = await loop.run_in_executor(
             None,
             lambda: self.client.models.generate_content(
-                model="gemini-2.0-flash",
+                model="gemini-3.5-flash",
                 contents=[
                     {"role": "user", "parts": [{"text": system_prompt}]},
                     {"role": "user", "parts": [{"text": f"Original prompt: {prompt}"}]},
@@ -173,7 +173,7 @@ Return as JSON with keys: clarity_score, visual_richness, issues, missing_elemen
         response = await loop.run_in_executor(
             None,
             lambda: self.client.models.generate_content(
-                model="gemini-2.0-flash",
+                model="gemini-3.5-flash",
                 contents=[
                     {"role": "user", "parts": [{"text": system_prompt}]},
                     {"role": "user", "parts": [{"text": f"Prompt: {prompt}"}]},

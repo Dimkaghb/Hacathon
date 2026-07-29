@@ -1,5 +1,6 @@
 "use client";
 
+import Preloader from "@/components/landing/Preloader";
 import Navigation from "@/components/landing/Navigation";
 import HeroSection from "@/components/landing/HeroSection";
 import AboutSection from "@/components/landing/AboutSection";
@@ -12,7 +13,8 @@ import ContactSection from "@/components/landing/ContactSection";
 
 export default function Home() {
   return (
-    <div className="min-h-screen w-full bg-[#0a0a0a] text-white selection:bg-white/20">
+    <div className="landing-page min-h-screen w-full bg-black text-white selection:bg-white/20">
+      <Preloader />
       <Navigation />
       <HeroSection />
       <AboutSection />

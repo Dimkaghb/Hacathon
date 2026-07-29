@@ -120,8 +120,9 @@
 @theme inline {
   --color-background: var(--color-bg-primary);
   --color-foreground: var(--color-text-primary);
+  --color-primary: #DEDBC8;
   --font-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-serif: "Playfair Display", Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-serif: var(--font-instrument-serif), "Instrument Serif", Georgia, serif;
   --font-melodrama: var(--font-melodrama);
 }
 
@@ -136,6 +137,35 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
+}
+
+/* ========================================
+   LANDING PAGE UTILITIES
+   ======================================== */
+
+/* Landing page global font (Almarai) — scoped so the editor keeps Inter */
+.landing-page {
+  font-family: var(--font-almarai), -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", sans-serif;
+}
+
+/* Fractal noise overlay for hero media */
+.noise-overlay {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+}
+
+/* Subtle noise background for sections */
+.bg-noise {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+}
+
+/* Navbar pill links */
+.nav-link {
+  color: rgba(225, 224, 204, 0.8);
+  transition: color 0.2s ease;
+}
+
+.nav-link:hover {
+  color: #E1E0CC;
 }
 
 @keyframes slowFade {
